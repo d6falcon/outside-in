@@ -105,7 +105,8 @@ SLA: **contain within 24 hours, fix within 72 hours.**
     "provider": "gcp", "account": "acme-data-prod", "region": "europe-west2",
     "resource": "gs://acme-prod-exports", "attribution": "A1",
     "attribution_basis": "referenced by acme.example JS; present in org inventory",
-    "in_inventory": true, "owner": "Data Platform", "environment": "prod"
+    "in_inventory": true, "owner": "Data Platform", "environment": "prod",
+    "controls": { "edr": "not-applicable" }
   },
   "exposure": { "reach": "internet-any" },
   "evidence": {

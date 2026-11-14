@@ -8,6 +8,9 @@
 #   stranger     optional: what the world sees, run from a separate NON-org "audit stranger" cloud account you control.
 #                This proves public sharing without touching the target's data.
 #   guardrail    preventive org-wide control that stops the whole class from recurring
+#   agent_expected  true only where the exposure sits on a VM you run (open firewall, public IP, IMDSv1 host).
+#                Managed services (storage, DBaaS, serverless, managed K8s control planes) are false: their coverage
+#                comes from cloud audit logs and CNAPP, not EDR.
 #
 # Regions. Concrete examples use London: AWS eu-west-2, Google Cloud europe-west2 (zone europe-west2-a), Azure uksouth.
 # <r> means "repeat for every region in use". Global-only endpoints (AWS IAM events in us-east-1, ECR Public in
@@ -31,6 +34,7 @@ cloud_assets:
   provider: aws
   family: storage
   weight: critical
+  agent_expected: false
   risk: "Bulk data exposure: backups, exports, logs, IaC state, PII. Automated bucket-hunters index new public buckets within hours."
   discover: ["Bucket names in CNAMEs, CSP headers, JS bundles and mobile apps", "Org-name permutations, checked existence-only", "Public bucket search indexes (e.g. GrayhatWarfare) filtered to our names", "Wayback / CT for *.s3*.amazonaws.com references"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<bucket>.s3.amazonaws.com/?list-type=2&max-keys=1'", exposed_if: "200 = anonymous listing. 403 = exists, private. 404 NoSuchBucket = check for dangling references (see dangling-dns-cloud). Record key NAMES/count only"}
@@ -46,6 +50,7 @@ cloud_assets:
   provider: aws
   family: storage
   weight: critical
+  agent_expected: false
   risk: "Supply-chain poisoning of hosted JS, installers or packages. Malware staging on your domain. Data overwrite and deletion (ransom)."
   discover: ["Same as aws-s3-public-read", "Buckets that serve static assets (CNAME targets, <script src>)"]
   proof: {rung: E2, cmd: "Do NOT test by writing. Use stranger and inside_out instead", exposed_if: "Policy or ACL grants s3:PutObject / WRITE to * or AllUsers / AuthenticatedUsers"}
@@ -61,6 +66,7 @@ cloud_assets:
   provider: azure
   family: storage
   weight: critical
+  agent_expected: false
   risk: "Container- or blob-level anonymous read. Account names are globally unique DNS, so they are easy to enumerate."
   discover: ["<acct>.blob.core.windows.net references in code, CNAMEs and CT", "DNS existence check of org-name permutations (nslookup <acct>.blob.core.windows.net)"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<acct>.blob.core.windows.net/<container>?restype=container&comp=list&maxresults=1'", exposed_if: "200 = anonymous container listing (E3). 409 PublicAccessNotPermitted = account blocks anonymous access. 404 = not listable anonymously, but blob-level anonymous read may still be on, so confirm inside-out"}
@@ -76,6 +82,7 @@ cloud_assets:
   provider: azure
   family: storage
   weight: critical
+  agent_expected: false
   risk: "A leaked account-level SAS with long expiry and write or list permissions works like a password that cannot be revoked without rotating keys."
   discover: ["'sig=' + 'sv=' + '.blob.core.windows.net' in public repos, docs, mobile apps, support tickets, Postman workspaces"]
   proof: {rung: E2, cmd: "Parse the leaked URL OFFLINE only: sp= (permissions), se= (expiry), srt=/ss= (account SAS scope). Never call it", exposed_if: "Unexpired SAS with list, write or delete scope, or account-level scope"}
@@ -91,6 +98,7 @@ cloud_assets:
   provider: gcp
   family: storage
   weight: critical
+  agent_expected: false
   risk: "allAuthenticatedUsers means ANY Google account, not your org. This is a common misunderstanding."
   discover: ["storage.googleapis.com/<bucket> and <bucket>.storage.googleapis.com references", "Firebase storage buckets (<project>.appspot.com / <project>.firebasestorage.app)"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://storage.googleapis.com/storage/v1/b/<bucket>/o?maxResults=1'", exposed_if: "200 = public listing (E3). 401/403 = not listable anonymously, but individual objects may still be public via allUsers object read, so confirm inside-out. 404 = not found"}
@@ -106,6 +114,7 @@ cloud_assets:
   provider: multi
   family: storage
   weight: critical
+  agent_expected: false
   risk: "Shadow IT often lands here, outside the main CSPM's view. OCI PAR URLs and r2.dev public URLs work like bearer links."
   discover: ["*.digitaloceanspaces.com, *.r2.dev, objectstorage.*.oraclecloud.com/p/, *.aliyuncs.com, *.backblazeb2.com references in code, CNAMEs and CT"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' '<endpoint-url>?list-type=2&max-keys=1'", exposed_if: "200 listing or an object served without auth"}
@@ -122,6 +131,7 @@ cloud_assets:
   provider: aws
   family: snapshot
   weight: critical
+  agent_expected: false
   risk: "Anyone can copy the full disk into their own account: databases, SSH keys, .env files, browser and credential stores."
   discover: ["Stranger-account view (below)", "Account IDs recovered from public ARNs or leaked keys (aws sts get-access-key-info, using your OWN audit creds)"]
   stranger: "aws ec2 describe-snapshots --owner-ids <our-acct> --restorable-by-user-ids all --region <r>"
@@ -138,6 +148,7 @@ cloud_assets:
   provider: aws
   family: snapshot
   weight: critical
+  agent_expected: false
   risk: "Complete database restorable by any AWS account."
   discover: ["Stranger-account view"]
   stranger: "aws rds describe-db-snapshots --region <r> --include-public --snapshot-type public --query \"DBSnapshots[?contains(DBSnapshotArn, ':<our-acct>:')].DBSnapshotIdentifier\" (run per region in use; it pages through every public snapshot in the region, so expect a long runtime)"
@@ -154,6 +165,7 @@ cloud_assets:
   provider: aws
   family: snapshot
   weight: high
+  agent_expected: false
   risk: "Golden images carry baked-in agents, keys and config. Accidental public sharing is common."
   discover: ["Stranger-account view"]
   stranger: "aws ec2 describe-images --owners <our-acct> --executable-users all --region <r>"
@@ -170,6 +182,7 @@ cloud_assets:
   provider: azure
   family: snapshot
   weight: critical
+  agent_expected: false
   risk: "A disk export SAS URL gives a downloadable VHD of the full disk."
   discover: ["md-*.blob.core.windows.net / *.blob.storage.azure.net SAS URLs in tickets, scripts or repos"]
   proof: {rung: E2, cmd: "Parse the leaked URL offline (expiry). Never download", exposed_if: "Unexpired export SAS"}
@@ -185,6 +198,7 @@ cloud_assets:
   provider: gcp
   family: snapshot
   weight: high
+  agent_expected: false
   risk: "Same as public AMIs: secrets and configuration baked into shared images."
   discover: ["Stranger-account view from a non-org account (project-level sharing)", "Image names referenced in IaC, docs or Marketplace listings (image-level sharing)"]
   stranger: "gcloud compute images list --project <our-project> --no-standard-images (catches project-level sharing only); for a known image name: gcloud compute images describe <image> --project <our-project> (catches image-level allAuthenticatedUsers grants)"
@@ -202,6 +216,7 @@ cloud_assets:
   provider: aws
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "Internet-routable DB endpoint. One permissive security group away from brute force and data theft."
   discover: ["*.rds.amazonaws.com in code and config leaks", "Shodan: hostname:rds.amazonaws.com with our account's endpoints"]
   proof: {rung: E1, cmd: "nmap -Pn -p3306,5432,1433,1521 <endpoint>", exposed_if: "Port open from the internet (see services.yaml for engine-specific proof)"}
@@ -217,6 +232,7 @@ cloud_assets:
   provider: azure
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "Rule 0.0.0.0-255.255.255.255 = whole internet. Rule 0.0.0.0-0.0.0.0 ('Allow Azure services') = ANY Azure tenant, including attackers' subscriptions."
   discover: ["*.database.windows.net / *.postgres.database.azure.com / *.mysql.database.azure.com in code and config"]
   proof: {rung: E1, cmd: "nmap -Pn -p1433,5432,3306 <server-fqdn>", exposed_if: "TDS/PG/MySQL handshake from an arbitrary internet IP"}
@@ -232,6 +248,7 @@ cloud_assets:
   provider: azure
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "Primary keys grant full data-plane access from anywhere when network rules are open."
   discover: ["*.documents.azure.com references, AccountKey= in leaks"]
   proof: {rung: E1, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<acct>.documents.azure.com/", exposed_if: "Responds from the internet (401 expected without key)"}
@@ -247,6 +264,7 @@ cloud_assets:
   provider: gcp
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "0.0.0.0/0 in authorizedNetworks = internet-exposed DB."
   discover: ["Cloud SQL public IPs in GCP ranges serving 3306/5432/1433"]
   proof: {rung: E1, cmd: "nmap -Pn -p3306,5432,1433 <ip>", exposed_if: "DB port reachable"}
@@ -262,6 +280,7 @@ cloud_assets:
   provider: aws
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "Same failure mode as self-hosted Elasticsearch: logs, PII and tokens readable by anyone."
   discover: ["search-*.<region>.es.amazonaws.com in code, CT and passive DNS"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<endpoint>/", exposed_if: "200 = anonymous access. 403 = policy enforced"}
@@ -277,6 +296,7 @@ cloud_assets:
   provider: gcp
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "Analytics warehouses hold the most aggregated data in the company."
   discover: ["Dataset IDs in notebooks, docs and public repos"]
   proof: {rung: E2, cmd: "Owner confirmation preferred. Do not query tables", exposed_if: "Dataset metadata visible from a stranger account"}
@@ -292,6 +312,7 @@ cloud_assets:
   provider: gcp
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "Rules like '.read: true' or 'allow read, write: if true' are behind many of the largest mobile-app leaks."
   discover: ["firebaseConfig in web JS and mobile apps (databaseURL, projectId, storageBucket). The apiKey is publishable, not a secret"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' '<databaseURL from firebaseConfig>/.json?shallow=true'; curl -s -o /dev/null -w '%{http_code}' 'https://firebasestorage.googleapis.com/v0/b/<bucket>/o?maxResults=1'", exposed_if: "databaseURL is https://<project>-default-rtdb.firebaseio.com (us-central1), https://<db>.<region>.firebasedatabase.app (other regions) or legacy https://<project>.firebaseio.com. 200 = world-readable (shallow returns top-level keys only). 401/403 = rules enforced. Firestore: owner E4 only"}
@@ -307,6 +328,7 @@ cloud_assets:
   provider: multi
   family: dbaas
   weight: critical
+  agent_expected: false
   risk: "The anon key is public by design. If RLS is off, every row is readable or writable through the REST API."
   discover: ["<ref>.supabase.co plus the anon/publishable key in front-end bundles"]
   proof: {rung: E3, cmd: "curl -s -I '<url>/rest/v1/<table>?select=*' -H 'apikey: <anon-key>' -H 'Prefer: count=exact' -H 'Range: 0-0'", exposed_if: "Content-Range shows a row count > 0 for a sensitive table = readable by anon (metadata only; never page through rows). A service_role key in the front end = force P1"}
@@ -322,6 +344,7 @@ cloud_assets:
   provider: multi
   family: dbaas
   weight: high
+  agent_expected: false
   risk: "Principal '*' on SendMessage or Publish lets outsiders inject events into back-end pipelines. Receive leaks data."
   discover: ["Queue URLs and topic ARNs in code, IaC and public repos"]
   proof: {rung: E2, cmd: "Owner confirmation. Do not send or receive messages", exposed_if: "Policy allows '*' without aws:SourceAccount / aws:SourceArn conditions"}
@@ -338,6 +361,7 @@ cloud_assets:
   provider: aws
   family: serverless
   weight: high
+  agent_expected: false
   risk: "Unauthenticated invoke of internal functions. Denial-of-wallet. SSRF from the function role into IMDS-like credentials."
   discover: ["*.lambda-url.<region>.on.aws in JS, mobile apps and passive DNS"]
   proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<id>.lambda-url.<region>.on.aws/", exposed_if: "Anything other than 403 Forbidden (the AWS_IAM signature) = AuthType NONE. Do not fuzz"}
@@ -353,6 +377,7 @@ cloud_assets:
   provider: multi
   family: serverless
   weight: high
+  agent_expected: false
   risk: "Internal APIs published without auth. Data leaks and abuse of back-end functions."
   discover: ["*.execute-api.<region>.amazonaws.com, *.azure-api.net, *.gateway.dev in JS, Postman and OpenAPI docs"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<api-host>/<stage>/<documented-path>", exposed_if: "2xx on a non-public route without credentials. Use documented GET routes only"}
@@ -368,6 +393,7 @@ cloud_assets:
   provider: azure
   family: serverless
   weight: high
+  agent_expected: false
   risk: "authLevel anonymous exposes internal triggers to the internet."
   discover: ["<app>.azurewebsites.net/api/* references"]
   proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<app>.azurewebsites.net/api/<function>", exposed_if: "Not 401 = no function key required"}
@@ -383,6 +409,7 @@ cloud_assets:
   provider: azure
   family: serverless
   weight: high
+  agent_expected: false
   risk: "Publishing credentials allow code deployment (web shell) and environment variable / secret read via Kudu."
   discover: ["<app>.scm.azurewebsites.net resolves", "publishProfile XML files in repos"]
   proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<app>.scm.azurewebsites.net/", exposed_if: "Reachable from the internet (expect a 401 or a login redirect)"}
@@ -398,6 +425,7 @@ cloud_assets:
   provider: gcp
   family: serverless
   weight: medium
+  agent_expected: false
   risk: "Often intended for public apps. Risky when internal services or admin endpoints are published this way."
   discover: ["*.run.app / *.cloudfunctions.net references"]
   proof: {rung: E2, cmd: "curl -s -D - -o /dev/null https://<svc>.run.app/", exposed_if: "403 = IAM invoker required. Google-branded 404 = ingress restricted or default URL disabled (not exposed). Any response from the app itself (2xx, or the app's own 401/404 body) = unauthenticated invoke allowed"}
@@ -413,6 +441,7 @@ cloud_assets:
   provider: multi
   family: serverless
   weight: medium
+  agent_expected: false
   risk: "WAF, bot and DDoS protections are skipped when the origin answers any source."
   discover: ["Historical DNS and CT for pre-CDN IPs", "Scan-DB search for our certificate (ssl.cert.subject.cn) on non-CDN IPs"]
   proof: {rung: E2, cmd: "curl -sk -o /dev/null -w '%{http_code}' --resolve <host>:443:<origin-ip> https://<host>/", exposed_if: "Origin serves the site directly"}
@@ -429,6 +458,7 @@ cloud_assets:
   provider: multi
   family: container-platform
   weight: high
+  agent_expected: false
   risk: "Control plane open to the internet. One leaked kubeconfig or token, or an RBAC slip (system:anonymous), means cluster takeover."
   discover: ["*.eks.amazonaws.com, *.azmk8s.io endpoints in CT, passive DNS and kubeconfigs in leaks", "GKE endpoints in GCP ranges answering 443 with a Kubernetes cert"]
   proof: {rung: E2, cmd: "curl -sk https://<endpoint>/version", exposed_if: "Kubernetes version JSON returned from an arbitrary internet IP (see services.yaml k8s-api for the anonymous-read test)"}
@@ -444,6 +474,7 @@ cloud_assets:
   provider: multi
   family: container-platform
   weight: high
+  agent_expected: false
   risk: "Image layers keep deleted files: .env, keys, kubeconfigs, internal hostnames. Public org images on Docker Hub are a top source of live cloud keys."
   discover: ["Org namespaces on Docker Hub, GHCR, Quay and ECR Public", "Registry hostnames in CI configs"]
   proof: {rung: E3, cmd: "List public repositories and tags (metadata). Secret-scan layers only for images confirmed as ours (A1) and with RoE approval", exposed_if: "Public image belongs to the org. Any secret found = see leaked-cloud-credentials"}
@@ -460,6 +491,7 @@ cloud_assets:
   provider: multi
   family: network
   weight: high
+  agent_expected: true
   risk: "The cloud-side root cause of most exposed-services findings. Also how attackers create persistence (T1686.001 Cloud Firewall)."
   discover: ["Outside-in: services.yaml findings on IPs in cloud ranges"]
   proof: {rung: E1, cmd: "See the matching services.yaml entry for the port", exposed_if: "Port reachable on a cloud IP"}
@@ -475,6 +507,7 @@ cloud_assets:
   provider: multi
   family: network
   weight: medium
+  agent_expected: true
   risk: "Reconciliation gap: assets reachable from outside that nobody intended to publish (internal tools on internet-facing ALBs, dev VMs with public IPs)."
   discover: ["Diff: outside-in reachable IPs/hosts vs inside-out inventory of intended-public resources (tag: exposure=public)"]
   proof: {rung: E1, cmd: "httpx / nmap against the reachable host", exposed_if: "Reachable and not tagged or approved as public"}
@@ -490,6 +523,7 @@ cloud_assets:
   provider: aws
   family: network
   weight: high
+  agent_expected: true
   risk: "SSRF in the exposed app leaks instance role credentials from 169.254.169.254 (the classic large-bank breach pattern)."
   discover: ["Internet-facing apps on EC2 (outside-in) joined with inside-out MetadataOptions"]
   proof: {rung: E4, cmd: "Do not attempt SSRF. Owner confirms HttpTokens", exposed_if: "HttpTokens=optional on an instance serving internet traffic"}
@@ -506,6 +540,7 @@ cloud_assets:
   provider: multi
   family: dns
   weight: high
+  agent_expected: false
   risk: "An attacker claims the freed resource name and serves content on your subdomain: phishing, cookie theft (parent-domain cookies), OAuth redirect abuse."
   discover: ["Enumerate our DNS zones (inside-out export preferred), resolve every CNAME. Targets: *.s3*.amazonaws.com, *.cloudfront.net, *.elasticbeanstalk.com, *.azurewebsites.net, *.cloudapp.net, *.trafficmanager.net, *.blob.core.windows.net, *.azureedge.net, *.herokuapp.com, *.github.io, *.fastly.net, *.netlify.app, *.vercel.app"]
   proof: {rung: E2, cmd: "dig +short CNAME <sub>; dig +short <target>; curl -s https://<sub>/ | head -c 300", exposed_if: "Target NXDOMAIN or a provider 'unclaimed' fingerprint (S3 NoSuchBucket, Azure NXDOMAIN, Heroku 'No such app', GitHub Pages 404 site-not-found). NEVER claim the resource to prove it"}
@@ -521,6 +556,7 @@ cloud_assets:
   provider: multi
   family: dns
   weight: high
+  agent_expected: false
   risk: "Released elastic or public IPs get reassigned to other tenants, who then receive traffic, and sometimes valid TLS, for your hostname."
   discover: ["A records whose IPs are in AWS / Azure / GCP / OCI published ranges"]
   proof: {rung: E2, cmd: "curl -sk -o /dev/null -w '%{http_code} %{ssl_verify_result}' --resolve <host>:443:<ip> https://<host>/", exposed_if: "IP no longer in our inventory (inside_out) and serving unrelated content"}
@@ -537,6 +573,7 @@ cloud_assets:
   provider: multi
   family: identity
   weight: critical
+  agent_expected: false
   risk: "Fastest-growing cloud entry route. Valid keys lead to discovery, persistence (new keys, roles, users), data theft, LLMjacking and S3 ransomware."
   discover: ["Public code (GitHub/GitLab code search, gists), package registries, public container images, mobile apps, Postman public workspaces, paste sites, public CI logs, Stack Overflow", "Provider partner alerts (GitHub secret scanning partner program → AWS / Azure / GCP)"]
   proof: {rung: E2, cmd: "Attribute WITHOUT using the key: aws sts get-access-key-info --access-key-id <AKIA...> (run with YOUR audit credentials; returns the owning account ID). Never call any API with the leaked secret", exposed_if: "Account / tenant / project belongs to the org (A1). Treat as valid until the owner proves otherwise"}
@@ -552,6 +589,7 @@ cloud_assets:
   provider: multi
   family: identity
   weight: high
+  agent_expected: false
   risk: "LLMjacking: attackers resell access to your model quota (large bills), read fine-tune data, poison or exfiltrate via AI services."
   discover: ["Same channels as leaked-cloud-credentials. Front-end bundles calling model APIs directly"]
   proof: {rung: E2, cmd: "Identify the provider by key format. Do not call the API with it", exposed_if: "Key attributable to the org (from repo or app ownership)"}
@@ -567,6 +605,7 @@ cloud_assets:
   provider: multi
   family: identity
   weight: critical
+  agent_expected: false
   risk: "State files contain plaintext secrets, resource IDs and the full architecture."
   discover: ["filename:terraform.tfstate / *.tfstate in public repos", "*.tfstate keys in public bucket listings (aws-s3-public-read)"]
   proof: {rung: E3, cmd: "Confirm existence and ownership from the file path and metadata. Do not open beyond what attribution needs", exposed_if: "State or template for org resources publicly reachable"}
@@ -582,6 +621,7 @@ cloud_assets:
   provider: multi
   family: identity
   weight: high
+  agent_expected: false
   risk: "Secrets echoed in public logs and artifacts. Public workflows reveal OIDC role ARNs and trust patterns."
   discover: ["Public repos of the org: Actions runs and artifacts, .github/workflows, .gitlab-ci.yml"]
   proof: {rung: E2, cmd: "Read public workflow files and log metadata only. Never trigger workflows", exposed_if: "Secret material in public logs or artifacts, or role ARNs revealing cloud trust"}
@@ -597,6 +637,7 @@ cloud_assets:
   provider: multi
   family: identity
   weight: critical
+  agent_expected: false
   risk: "Any GitHub repository (an attacker's) can assume your cloud role when the trust policy does not pin the subject."
   discover: ["Role ARNs in public workflow files (ci-public-artifacts)"]
   proof: {rung: E4, cmd: "Owner checks the trust policy. NEVER attempt to assume the role from an outside repo", exposed_if: "Trust lacks a token.actions.githubusercontent.com:sub condition, or uses a wildcard like repo:*"}
@@ -612,6 +653,7 @@ cloud_assets:
   provider: multi
   family: identity
   weight: high
+  agent_expected: false
   risk: "Confused-deputy access by a vendor's other customers. Over-privileged vendor roles are a supply-chain exposure."
   discover: ["Vendor onboarding docs and CloudFormation quick-create links that reveal role patterns"]
   proof: {rung: E4, cmd: "Owner reviews the trust policies", exposed_if: "External principal trusted without sts:ExternalId, or with broad permissions"}
@@ -627,6 +669,7 @@ cloud_assets:
   provider: aws
   family: identity
   weight: high
+  agent_expected: false
   risk: "The identity pool ID is publishable, but if the unauthenticated role is broad, anyone gets AWS credentials into your account."
   discover: ["IdentityPoolId (region:GUID) in web or mobile app bundles"]
   proof: {rung: E4, cmd: "Owner reviews the unauthenticated role permissions. Do not mint credentials", exposed_if: "AllowUnauthenticatedIdentities=true and the unauth role has more than the minimal intended permissions"}
@@ -643,6 +686,7 @@ cloud_assets:
   provider: saas
   family: saas
   weight: high
+  agent_expected: false
   risk: "Search-engine-indexed internal documents, credentials in Postman collections, roadmaps and customer data."
   discover: ["Search engine dorks for the org on docs.google.com, *.sharepoint.com/:x:/, notion.site, trello.com, postman.com", "Postman public API network search for the org's domains"]
   proof: {rung: E3, cmd: "Open as an anonymous visitor and record the title and URL only. Do not download files", exposed_if: "Content attributable to the org is reachable without login"}
@@ -659,6 +703,7 @@ cloud_assets:
   provider: multi
   family: ai
   weight: high
+  agent_expected: false
   risk: "Notebook = shell with a powerful role. Presigned notebook URLs leaked in chat or tickets give direct access."
   discover: ["*.notebook.<region>.sagemaker.aws, *.notebooks.googleusercontent.com, *.azureml.ms, *.cloud.databricks.com links in tickets and repos"]
   proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' <notebook-url>", exposed_if: "Notebook UI reachable without SSO redirect (presigned URLs: check expiry offline)"}
@@ -674,6 +719,7 @@ cloud_assets:
   provider: multi
   family: ai
   weight: critical
+  agent_expected: false
   risk: "Agents wired to internal data and tools, reachable anonymously: data exfiltration via prompts, indirect prompt injection, tool abuse."
   discover: ["*.run.app / *.azurewebsites.net / *.lambda-url / *.on.aws hosts exposing /mcp, /sse, /v1/chat/completions or agent UIs"]
   proof: {rung: E3, cmd: "See services.yaml mcp-server / llm-inference proofs", exposed_if: "Unauthenticated initialize or chat endpoint on an org-owned host"}

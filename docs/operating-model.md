@@ -13,7 +13,7 @@ flowchart LR
     direction TB
     EASM["EASM / internet-scan DBs<br/>Shadowserver · CT · passive DNS"]
     CNAPP["CNAPP / CSPM<br/>cloud posture + identities"]
-    EDRVM["EDR / VM scanners<br/>host + container vulns"]
+    EDRVM["EDR / VM scanners<br/>vulns + agent coverage"]
     CMDB["CMDB + discovery<br/>asset & owner of record"]
     IDP["Identity providers<br/>human + non-human"]
   end
@@ -55,7 +55,7 @@ evidence rung) and takes exploit intelligence back for the EPS Pressure factor.
 | **EASM / internet-scan databases** (commercial EASM, Shodan, Censys and similar) | Seeds, banners, certificates, first-seen dates (E0) | Discover |
 | **Shadowserver / national CERT feeds** (free for network owners) | Daily exposed-service and vulnerable-version reports for your ranges | Discover, Validate |
 | **CNAPP / CSPM** | Inside-out config truth: public buckets, open security groups, identities, "toxic combinations" | Validate (E4), Attribute |
-| **EDR + VM scanners** | Installed versions, KEV/CVE matches, runtime signals | Prioritise (Pressure), RB-01 investigation |
+| **EDR + VM scanners** | Installed versions, KEV/CVE matches, runtime signals, **agent health and coverage** (missing or stale agents on exposed hosts) | Prioritise (Pressure, no-EDR lift), RB-01 investigation |
 | **CMDB + discovery** | Asset of record, environment, business service, remediation owner | Attribute, Mobilise |
 | **Cloud org inventories** (AWS Organizations, Azure management groups, GCP org) | Accounts, tags, labels, owners | Attribute |
 | **Identity providers** (human IdP, cloud IAM, CI/CD federation) | Who and what can authenticate where | RB-02 |
@@ -100,5 +100,6 @@ each source is connected.
 | **Guardrail coverage** (% accounts/projects with each org-level control) | Shrinks the inflow of findings |
 | **Unmanaged-asset rate** (A2 not in CMDB) | Inventory health, the root cause of most surprises |
 | **Detection-gap count** (DETs the SOC can't see on exposed assets) | Converts exposure into detection engineering backlog |
+| **Endpoint coverage on exposed hosts** (% with a healthy EDR agent, where one is expected) | Exposed *and* unseen is the worst combination. A simple board-level control-coverage number |
 
 Avoid vanity counts ("CVEs closed", "mean CVSS"). They reward volume, not risk removed.

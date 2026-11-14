@@ -38,6 +38,18 @@ Ownership signals to try, in order: cloud resource tags (`owner`, `team`, `cost-
 to business-unit map, the CMDB, DNS zone owner, certificate requester, the IaC repo `CODEOWNERS`, and the last
 deployer (CloudTrail, Activity Log, Audit Logs).
 
+### Step 2b: control coverage (EDR)
+
+For every finding whose catalog class has `agent_expected: true`, join the asset to the EDR console export (or the
+CMDB or CNAPP agent inventory) on **instance or resource ID and hostname, never public IP alone**. Set
+`asset.controls.edr` to `healthy`, `stale` (no check-in for more than 7 days, or reduced functionality), `missing` or
+`unknown`. For `agent_expected: false` classes, set `not-applicable` and move on.
+
+- `missing` / `stale` / `unknown`: apply the `lift-no-edr` override in Step 4, and copy the endpoint-dependent
+  `soc_watch` DETs into `detection_gaps`.
+- `healthy`: no change to the band. EDR never lowers priority.
+- In the ticket, offer "deploy or repair the agent" as the **interim** step, never as the fix.
+
 ## Step 3: threat context (live, never from memory)
 
 For every product and version identified:
@@ -59,7 +71,7 @@ For every product and version identified:
   until told otherwise, and say that you defaulted.
 - Show the arithmetic in every ticket, e.g. `EPS 82 = Reach 25 + Class 20 + Pressure 15 + Blast 22`.
 
-Then apply the overrides (force P1, cap at P3 for A3, lift a band for unmanaged or regressed) and map to a band:
+Then apply the overrides (force P1, cap at P3 for A3, lift a band for unmanaged, regressed or no-EDR) and map to a band:
 **P1 ≥ 75 · P2 50–74 · P3 25–49 · P4 < 25**.
 
 If the organisation runs a prioritisation engine, record its score next to EPS. Where the two differ by more than one
@@ -93,7 +105,8 @@ Fill in `templates/exec-brief.md`. Keep it to one page:
 - Counts by band, plus a trend against the last cycle (new / closed / regressed).
 - **Top 5 roll-ups** by EPS, each with one sentence of business impact.
 - **Classes without a guardrail** (e.g. "public snapshots possible in 31 of 40 accounts").
-- **Ownership gaps** and **detection gaps**.
+- **Ownership gaps**, **detection gaps** and **endpoint coverage** (% of exposed hosts that should run EDR and have
+  a healthy agent).
 - The time-to-close median for P1/P2 this cycle.
 
 Avoid dollar-loss figures unless the organisation has its own loss model. EPS is a prioritisation tool, not a risk

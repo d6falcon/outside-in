@@ -33,7 +33,7 @@ flowchart LR
 
 | Step | What's different |
 |---|---|
-| **Attribute** | Every asset is A1 confirmed, A2 probable or A3 unattributed, so nobody is paged for someone else's bucket |
+| **Attribute** | Every asset is A1 confirmed, A2 probable or A3 unattributed, so nobody is paged for someone else's bucket. Exposed hosts missing their EDR agent are flagged as blind spots |
 | **Validate** | Least-touch evidence only: a status code or key *name*. No exploits, no data reads, no found credentials |
 | **Prioritise** | **EPS** = Reach + Class + Pressure + Blast (0–100 → P1–P4). Transparent, and runs alongside your prioritisation engine |
 | **Mobilise** | Remediation campaigns with ITSM tickets, SLAs and exceptions, plus an org-level guardrail per class |

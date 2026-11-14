@@ -27,7 +27,18 @@
         "attribution_basis": { "type": "string" },
         "in_inventory": { "type": "boolean" },
         "owner": { "type": "string" },
-        "environment": { "type": "string", "enum": ["prod", "non-prod", "unknown"] }
+        "environment": { "type": "string", "enum": ["prod", "non-prod", "unknown"] },
+        "controls": {
+          "type": "object",
+          "description": "control coverage on the asset behind the exposure (methodology section 5, control coverage)",
+          "additionalProperties": false,
+          "properties": {
+            "edr": { "type": "string", "enum": ["healthy", "stale", "missing", "not-applicable", "unknown"],
+                     "description": "not-applicable when the catalog class has agent_expected: false" },
+            "edr_last_seen_utc": { "type": "string", "format": "date-time" },
+            "edr_source": { "type": "string", "description": "e.g. EDR console export, CMDB, CNAPP agent inventory" }
+          }
+        }
       }
     },
 
@@ -108,7 +119,7 @@
         "pressure": { "type": "integer", "minimum": 0, "maximum": 25 },
         "blast": { "type": "integer", "minimum": 0, "maximum": 25 },
         "total": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "overrides": { "type": "array", "items": { "type": "string", "enum": ["force-p1-unauth-data", "force-p1-leaked-secret", "force-p1-attacker-evidence", "cap-p3-unattributed", "lift-unmanaged", "lift-regressed"] } },
+        "overrides": { "type": "array", "items": { "type": "string", "enum": ["force-p1-unauth-data", "force-p1-leaked-secret", "force-p1-attacker-evidence", "cap-p3-unattributed", "lift-unmanaged", "lift-regressed", "lift-no-edr"] } },
         "band": { "type": "string", "enum": ["P1", "P2", "P3", "P4"] },
         "defaults_used": { "type": "array", "items": { "type": "string" }, "description": "factors scored on defaults pending owner input" }
       }

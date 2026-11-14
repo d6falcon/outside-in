@@ -118,3 +118,21 @@ every owner already has them.
 
 **Consequences.** Any enterprise can adopt it. Teams map the capability names to their own tools in a private
 operating-model addendum.
+
+---
+
+## ADR-009: Count missing EDR on exposed hosts as risk, never as mitigation
+
+**Context.** An internet-exposed host without a working EDR agent is reachable *and* unseen. It also quietly breaks
+the SOC hand-off (ADR-005), because most endpoint-based detection strategies need agent telemetry to fire. But many
+exposed things can never run EDR (appliances, BMCs, hypervisors, OT, managed cloud services), so a blanket "no agent"
+rule would drown teams in false positives.
+
+**Decision.** Every catalog class carries `agent_expected` (true for general-purpose hosts and container nodes, false
+otherwise). Exposed assets in `agent_expected` classes are joined to the EDR inventory on stable identifiers (resource
+ID and hostname, not public IP). A **missing or stale** agent lifts the finding one band and turns the
+endpoint-dependent DETs into recorded `detection_gaps`. A **healthy** agent never lowers the band.
+
+**Consequences.** Blind spots on the attack surface become a measured control-coverage metric (% of exposed hosts
+with healthy EDR) instead of a surprise during an incident. Deploying an agent is offered as an interim step or an
+exception's compensating control, never as the fix: only removing the exposure closes the finding.

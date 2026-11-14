@@ -122,7 +122,8 @@ Shaped to validate against `schemas/finding.schema.json` (shown as YAML for read
 finding_id: OI-2026-0142
 catalog_id: rdp
 asset: {ip: 198.51.100.24, hostname: ts01.example.com, provider: on-prem, attribution: A1,
-        attribution_basis: "RIR allocation + CMDB record", in_inventory: true, owner: "Windows Platform", environment: prod}
+        attribution_basis: "RIR allocation + CMDB record", in_inventory: true, owner: "Windows Platform", environment: prod,
+        controls: {edr: stale, edr_last_seen_utc: "2026-10-28T03:12:00Z", edr_source: "EDR console export"}}
 exposure: {port: "3389/tcp", product: "Microsoft Terminal Services", version: "10.0.17763", reach: internet-any}
 evidence:
   rung: E2
@@ -133,7 +134,8 @@ intel: {kev: false, epss_max: 0.02, attacker_evidence: false, notes: "AD domain 
 attack: {version: "20.1", recon: [T1596.005, T1595.001], access: [T1133, T1110.003, T1078.002], follow_on: [T1021.001, T1563.002, T1486]}
 soc_watch: [DET0354, DET0487, DET0210, DET0327, DET0588, DET0215]
 mitigations: [M1035, M1032, M1042, M1030, M1027]
-eps: {reach: 25, class: 20, pressure: 15, blast: 22, total: 82, band: P1}
+eps: {reach: 25, class: 20, pressure: 15, blast: 22, total: 82, overrides: [lift-no-edr], band: P1}   # already P1; lifts never exceed P1
+detection_gaps: [DET0327, DET0215]   # endpoint telemetry absent while the agent is stale
 remediation:
   containment: "Edge firewall: allow 3389 only from the vendor's two egress IPs"
   fix: "Remove from the internet; publish through ZTNA or RD Gateway with phishing-resistant MFA; enforce NLA and lockout"

@@ -3,6 +3,9 @@
 #
 # Field guide
 #   weight       critical | high | medium | low   -> feeds the EPS "Class" factor (25 / 20 / 10 / 3)
+#   agent_expected  true = the asset behind this exposure is a general-purpose host (or container node) that should
+#                run your EDR / runtime sensor. A missing or stale agent lifts the finding one band (methodology s5).
+#                false = appliance, BMC, hypervisor, IoT or OT where EDR can't run; rely on network and log telemetry.
 #   passive      Shodan-style filter. Replace <CIDR> / <ORG> / <DOMAIN>. Equivalent queries exist in Censys, FOFA,
 #                ZoomEye, Netlas and ONYPHE. Translate rather than copy blindly, because syntaxes change.
 #   proof        least-touch probe (needs active authorisation) + the rung on the evidence ladder it reaches
@@ -26,6 +29,7 @@ services:
   family: remote-admin
   ports: ["3389/tcp", "3389/udp"]
   weight: high
+  agent_expected: true
   risk: "Top ransomware entry point. Exposes a login surface for password spraying, pre-auth RCE history, and NTLM info leak (AD domain, hostname, OS build)."
   passive: "net:<CIDR> port:3389"
   proof: {rung: E2, cmd: "nmap -Pn -p3389 --script rdp-ntlm-info,rdp-enum-encryption <ip>", exposed_if: "RDP negotiation completes; record NLA/CredSSP status and the leaked NetBIOS/DNS domain"}
@@ -40,6 +44,7 @@ services:
   family: remote-admin
   ports: ["22/tcp", "2222/tcp"]
   weight: high
+  agent_expected: true
   risk: "Password brute force when password auth is on. Unpatched daemons (OpenSSH, Erlang/OTP, appliance SSH) give pre-auth RCE. Banners leak OS and patch level."
   passive: "net:<CIDR> port:22"
   proof: {rung: E2, cmd: "nmap -Pn -p22 -sV --script ssh-auth-methods,ssh2-enum-algos <ip>", exposed_if: "Handshake completes; flag 'password' or 'keyboard-interactive' in auth methods and outdated versions"}
@@ -54,6 +59,7 @@ services:
   family: remote-admin
   ports: ["23/tcp", "2323/tcp"]
   weight: high
+  agent_expected: false
   risk: "Cleartext credentials. Usually network gear, IoT or OT with default passwords. A favourite botnet recruitment port."
   passive: "net:<CIDR> port:23"
   proof: {rung: E2, cmd: "nmap -Pn -p23 -sV --script telnet-ntlm-info <ip>", exposed_if: "Login prompt or banner returned"}
@@ -67,6 +73,7 @@ services:
   family: remote-admin
   ports: ["5900-5910/tcp", "5800/tcp"]
   weight: high
+  agent_expected: true
   risk: "Weak or missing authentication. Often exposes HMI and OT screens or admin desktops directly."
   passive: "net:<CIDR> port:5900"
   proof: {rung: E3, cmd: "nmap -Pn -p5900-5910 --script vnc-info <ip>", exposed_if: "Security type 'None' (1) offered = unauthenticated desktop (force P1). VNC auth only = E2"}
@@ -80,6 +87,7 @@ services:
   family: remote-admin
   ports: ["5985/tcp", "5986/tcp"]
   weight: high
+  agent_expected: true
   risk: "Remote PowerShell. Valid credentials give direct command execution. NTLM auth exposes a spray target."
   passive: "net:<CIDR> port:5985,5986"
   proof: {rung: E2, cmd: "curl -s -o /dev/null -D - -X POST http://<ip>:5985/wsman | head -n 5; curl -sk -o /dev/null -D - -X POST https://<ip>:5986/wsman | head -n 5", exposed_if: "401 with WWW-Authenticate Negotiate/Kerberos/NTLM on /wsman = WinRM listener reachable"}
@@ -93,6 +101,7 @@ services:
   family: remote-admin
   ports: ["443/tcp"]
   weight: high
+  agent_expected: true
   risk: "Web front end to RDP. Brute-forceable without MFA. Rapid7 2026 lists RDWeb among the most-advertised access types."
   passive: "hostname:<DOMAIN> http.title:\"RD Web Access\""
   proof: {rung: E2, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<host>/RDWeb/", exposed_if: "200 or 302 to the RDWeb login page"}
@@ -106,6 +115,7 @@ services:
   family: remote-admin
   ports: ["8040/tcp", "8041/tcp", "443/tcp"]
   weight: critical
+  agent_expected: true
   risk: "One server controls every managed endpoint. Repeated auth-bypass KEVs. Attackers also abuse legitimate RMM for persistence."
   passive: "http.title:\"ScreenConnect\" org:\"<ORG>\""
   proof: {rung: E2, cmd: "nmap -Pn -p8040,8041,443 -sV --script http-title,http-headers <ip>", exposed_if: "Product login page or server header identifies an RMM build"}
@@ -120,6 +130,7 @@ services:
   family: remote-admin
   ports: ["512/tcp", "513/tcp", "514/tcp"]
   weight: high
+  agent_expected: true
   risk: "Legacy trust-based auth (.rhosts). Cleartext. Should never be reachable."
   passive: "net:<CIDR> port:512,513,514"
   proof: {rung: E1, cmd: "nmap -Pn -p512-514 -sV <ip>", exposed_if: "Port open with an r-service banner"}
@@ -133,6 +144,7 @@ services:
   family: remote-admin
   ports: ["6000-6005/tcp"]
   weight: high
+  agent_expected: true
   risk: "An open X server allows screenshots and keystroke injection."
   passive: "net:<CIDR> port:6000"
   proof: {rung: E3, cmd: "nmap -Pn -p6000-6005 --script x11-access <ip>", exposed_if: "x11-access reports access granted"}
@@ -147,6 +159,7 @@ services:
   family: edge-appliance
   ports: ["443/tcp", "10443/tcp", "4433/tcp", "8443/tcp"]
   weight: high
+  agent_expected: false
   risk: "Must be public by design, so the risk is patch latency plus credential abuse. DBIR 2026: VPN is 44% of broker-sold access, and the edge/VPN share of exploitation breaches is rising sharply."
   passive: "ssl.cert.subject.cn:\"<DOMAIN>\" http.title:\"GlobalProtect\",\"FortiGate\",\"NetScaler\",\"Ivanti Connect Secure\""
   proof: {rung: E2, cmd: "nmap -Pn -p443,10443,4433,8443 -sV --script http-title,ssl-cert,http-favicon <ip>", exposed_if: "Vendor portal identified. Record product and version (from login page assets, headers, or the owner)"}
@@ -161,6 +174,7 @@ services:
   family: edge-appliance
   ports: ["443/tcp", "8443/tcp", "4443/tcp", "80/tcp", "8080/tcp"]
   weight: critical
+  agent_expected: false
   risk: "Admin plane of the perimeter itself. In scope for CISA BOD 23-02. Repeated management-plane auth-bypass KEVs."
   passive: "net:<CIDR> http.title:\"FortiGate\",\"PAN-OS\",\"SonicWall\",\"Cisco\" -port:10443"
   proof: {rung: E2, cmd: "nmap -Pn -p80,443,4443,8080,8443 --script http-title,ssl-cert <ip>", exposed_if: "Admin login page reachable from the internet (not just the VPN portal)"}
@@ -175,6 +189,7 @@ services:
   family: edge-appliance
   ports: ["1723/tcp", "500/udp", "4500/udp"]
   weight: medium
+  agent_expected: false
   risk: "PPTP/MS-CHAPv2 is broken. IKE aggressive mode leaks a crackable PSK hash."
   passive: "net:<CIDR> port:1723,500"
   proof: {rung: E2, cmd: "nmap -Pn -sU -p500 --script ike-version <ip>; nmap -Pn -p1723 -sV <ip>", exposed_if: "IKE responds with aggressive mode, or PPTP banner present"}
@@ -189,6 +204,7 @@ services:
   family: infra-management
   ports: ["623/udp"]
   weight: critical
+  agent_expected: false
   risk: "BMC = hardware-level control below the OS. RAKP leaks password hashes pre-auth. Cipher 0 allows auth bypass."
   passive: "net:<CIDR> port:623"
   proof: {rung: E3, cmd: "nmap -Pn -sU -p623 --script ipmi-version,ipmi-cipher-zero <ip>", exposed_if: "IPMI responds (E2). Cipher zero enabled = E3, force P1"}
@@ -203,6 +219,7 @@ services:
   family: infra-management
   ports: ["443/tcp", "80/tcp", "5900/tcp"]
   weight: critical
+  agent_expected: false
   risk: "Remote console, virtual media and power control of physical servers. Default credentials and firmware CVEs are common."
   passive: "net:<CIDR> http.title:\"iLO\",\"iDRAC\",\"XClarity\""
   proof: {rung: E2, cmd: "nmap -Pn -p80,443 --script http-title,ssl-cert <ip>", exposed_if: "BMC login page reachable"}
@@ -216,6 +233,7 @@ services:
   family: infra-management
   ports: ["443/tcp", "902/tcp", "5480/tcp", "9443/tcp"]
   weight: critical
+  agent_expected: false
   risk: "Hypervisor control plane. ESXi mass ransomware (ESXiArgs and successors) encrypts whole estates at once."
   passive: "net:<CIDR> http.title:\"vSphere\",\"VMware ESXi\""
   proof: {rung: E2, cmd: "nmap -Pn -p443,902,5480 --script vmware-version,ssl-cert <ip>", exposed_if: "vmware-version returns a product and build"}
@@ -230,6 +248,7 @@ services:
   family: infra-management
   ports: ["427/tcp", "427/udp"]
   weight: high
+  agent_expected: false
   risk: "ESXi RCE history, plus a very high-factor UDP reflection amplifier."
   passive: "net:<CIDR> port:427"
   proof: {rung: E1, cmd: "nmap -Pn -sU -sV -p427 <ip>", exposed_if: "SLP responds"}
@@ -244,6 +263,7 @@ services:
   family: infra-management
   ports: ["161/udp"]
   weight: high
+  agent_expected: false
   risk: "Default community strings expose full device config, routing tables and ARP. Writable communities allow config changes."
   passive: "net:<CIDR> port:161"
   proof: {rung: E3, roe_gated: true, cmd: "nmap -Pn -sU -p161 --script snmp-info <ip> (E2, no community string); then, only if the RoE allows default-credential tests: nmap -Pn -sU -p161 --script snmp-sysdescr <ip>", exposed_if: "snmp-info answers = SNMP reachable (E2). snmp-sysdescr returns sysDescr using the default 'public' community = E3. Without RoE approval, stop at E2 and ask the owner"}
@@ -257,6 +277,7 @@ services:
   family: infra-management
   ports: ["4786/tcp"]
   weight: critical
+  agent_expected: false
   risk: "Unauthenticated config download and replacement on switches. Abused by state actors."
   passive: "net:<CIDR> port:4786"
   proof: {rung: E1, cmd: "nmap -Pn -p4786 -sV <ip>", exposed_if: "Port open (the protocol has no auth, so open = vulnerable)"}
@@ -271,6 +292,7 @@ services:
   family: infra-management
   ports: ["8006/tcp", "9440/tcp", "6516/tcp", "443/tcp"]
   weight: critical
+  agent_expected: false
   risk: "Same blast radius as vCenter: one login controls every VM."
   passive: "net:<CIDR> http.title:\"Proxmox\",\"Prism\",\"Windows Admin Center\""
   proof: {rung: E2, cmd: "nmap -Pn -p8006,9440,6516,443 --script http-title,ssl-cert <ip>", exposed_if: "Console login page reachable"}
@@ -284,6 +306,7 @@ services:
   family: infra-management
   ports: ["5000/tcp", "5001/tcp", "8080/tcp", "443/tcp"]
   weight: high
+  agent_expected: false
   risk: "Directly targeted by NAS ransomware families. Often holds the backups."
   passive: "net:<CIDR> http.title:\"Synology\",\"QNAP\",\"TrueNAS\""
   proof: {rung: E2, cmd: "nmap -Pn -p5000,5001,8080,443 --script http-title <ip>", exposed_if: "Appliance login page reachable"}
@@ -297,6 +320,7 @@ services:
   family: infra-management
   ports: ["9392/tcp", "9401/tcp", "9419/tcp", "443/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Ransomware crews go for backups first (inhibit recovery). Backup servers hold domain credentials."
   passive: "net:<CIDR> port:9392,9401"
   proof: {rung: E1, cmd: "nmap -Pn -p9392,9401,9419,443 -sV <ip>", exposed_if: "Backup service ports reachable from the internet"}
@@ -312,6 +336,7 @@ services:
   family: file-transfer
   ports: ["445/tcp", "139/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Wormable RCE history, NTLM relay and hash capture, share exposure. Should never cross the perimeter."
   passive: "net:<CIDR> port:445"
   proof: {rung: E2, cmd: "nmap -Pn -p445,139 --script smb-protocols,smb2-security-mode,smb-os-discovery <ip>", exposed_if: "SMB negotiation succeeds. SMBv1 enabled or signing not required = escalate"}
@@ -326,6 +351,7 @@ services:
   family: file-transfer
   ports: ["137/udp", "138/udp"]
   weight: medium
+  agent_expected: true
   risk: "Leaks hostnames, domain and logged-on users. Signals that a Windows host is directly exposed."
   passive: "net:<CIDR> port:137"
   proof: {rung: E2, cmd: "nmap -Pn -sU -p137 --script nbstat <ip>", exposed_if: "NetBIOS name table returned"}
@@ -339,6 +365,7 @@ services:
   family: file-transfer
   ports: ["21/tcp"]
   weight: high
+  agent_expected: true
   risk: "Cleartext credentials. Anonymous read/write is common on appliances and legacy integrations."
   passive: "net:<CIDR> port:21"
   proof: {rung: E3, cmd: "nmap -Pn -p21 -sV --script ftp-anon,ftp-syst <ip>", exposed_if: "Anonymous login allowed = E3 (record listing metadata only; never download)"}
@@ -352,6 +379,7 @@ services:
   family: file-transfer
   ports: ["69/udp"]
   weight: high
+  agent_expected: false
   risk: "No authentication at all. Often serves network device configs and PXE images."
   passive: "net:<CIDR> port:69"
   proof: {rung: E1, cmd: "nmap -Pn -sU -sV -p69 <ip>", exposed_if: "TFTP responds. Do not brute-force filenames"}
@@ -365,6 +393,7 @@ services:
   family: file-transfer
   ports: ["2049/tcp", "111/tcp", "111/udp"]
   weight: high
+  agent_expected: true
   risk: "World-readable exports, UID spoofing. rpcbind is also a reflection amplifier."
   passive: "net:<CIDR> port:2049,111"
   proof: {rung: E3, cmd: "nmap -Pn -p111,2049 --script rpcinfo,nfs-showmount <ip>", exposed_if: "Export list returned (metadata). Exports to * = escalate"}
@@ -378,6 +407,7 @@ services:
   family: file-transfer
   ports: ["873/tcp"]
   weight: high
+  agent_expected: true
   risk: "Modules are often unauthenticated, exposing backups and web roots, sometimes writable."
   passive: "net:<CIDR> port:873"
   proof: {rung: E3, cmd: "nmap -Pn -p873 --script rsync-list-modules <ip>", exposed_if: "Module list returned without auth"}
@@ -391,6 +421,7 @@ services:
   family: file-transfer
   ports: ["443/tcp", "8000/tcp", "8001/tcp", "8443/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Built to hold sensitive partner data and must be public. Repeated mass-exploitation campaigns (Clop and others) for data extortion."
   passive: "org:\"<ORG>\" http.title:\"MOVEit\",\"GoAnywhere\",\"CrushFTP\",\"Cleo\""
   proof: {rung: E2, cmd: "nmap -Pn -p443,8000,8001,8443 --script http-title,ssl-cert <ip>", exposed_if: "Product identified; get the exact version from the owner"}
@@ -406,6 +437,7 @@ services:
   family: directory
   ports: ["389/tcp", "636/tcp", "3268/tcp", "3269/tcp", "389/udp"]
   weight: critical
+  agent_expected: true
   risk: "Domain controller exposed. Anonymous bind leaks the directory. CLDAP (udp/389) is a large DDoS amplifier."
   passive: "net:<CIDR> port:389,636,3268"
   proof: {rung: E2, cmd: "nmap -Pn -p389,636,3268 --script ldap-rootdse <ip>", exposed_if: "RootDSE returns naming contexts (domain revealed). Anonymous bind beyond RootDSE = E3"}
@@ -419,6 +451,7 @@ services:
   family: directory
   ports: ["88/tcp", "88/udp", "464/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Exposed KDC allows username enumeration and AS-REP roasting from the internet."
   passive: "net:<CIDR> port:88"
   proof: {rung: E1, cmd: "nmap -Pn -p88 -sV <ip>", exposed_if: "KDC responds. Do not enumerate users"}
@@ -432,6 +465,7 @@ services:
   family: directory
   ports: ["135/tcp", "593/tcp", "49152-65535/tcp"]
   weight: high
+  agent_expected: true
   risk: "Endpoint enumeration, DCOM/WMI lateral movement path, coercion primitives."
   passive: "net:<CIDR> port:135"
   proof: {rung: E2, cmd: "nmap -Pn -p135 --script msrpc-enum <ip>", exposed_if: "Endpoint mapper returns interfaces"}
@@ -446,6 +480,7 @@ services:
   family: collaboration
   ports: ["443/tcp", "80/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Repeated pre-auth RCE chains (ProxyShell, ToolShell) leading to web shells and machine-key theft."
   passive: "org:\"<ORG>\" http.title:\"Outlook\",\"SharePoint\""
   proof: {rung: E2, cmd: "curl -sk -D - -o /dev/null https://<host>/owa/auth/logon.aspx; curl -sk -D - -o /dev/null https://<host>/", exposed_if: "OWA build in page assets or MicrosoftSharePointTeamServices header; compare build to current CU/SU"}
@@ -460,6 +495,7 @@ services:
   family: collaboration
   ports: ["25/tcp", "587/tcp", "110/tcp", "143/tcp", "993/tcp", "995/tcp"]
   weight: medium
+  agent_expected: true
   risk: "Basic-auth endpoints bypass MFA and are sprayed constantly. An open relay enables spoofing from your IPs."
   passive: "net:<CIDR> port:110,143,993,995"
   proof: {rung: E2, cmd: "nmap -Pn -p25,110,143,587 --script smtp-commands,imap-capabilities,pop3-capabilities <ip>", exposed_if: "Plaintext AUTH offered before STARTTLS, or legacy protocols exposed on user mailboxes. smtp-open-relay is roe_gated"}
@@ -474,6 +510,7 @@ services:
   family: database
   ports: ["1433/tcp", "1434/udp"]
   weight: critical
+  agent_expected: true
   risk: "Brute force of 'sa', xp_cmdshell to OS. NTLM info leaks the domain. A steady ransomware and crypto-mining vector."
   passive: "net:<CIDR> port:1433"
   proof: {rung: E2, cmd: "nmap -Pn -p1433 --script ms-sql-info,ms-sql-ntlm-info <ip>", exposed_if: "Instance and version returned"}
@@ -487,6 +524,7 @@ services:
   family: database
   ports: ["3306/tcp", "33060/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Brute force and default 'root' without a password. Data theft and ransom-note wipes."
   passive: "net:<CIDR> port:3306"
   proof: {rung: E2, cmd: "nmap -Pn -p3306 --script mysql-info <ip>", exposed_if: "Server greeting with version. Auth testing is roe_gated"}
@@ -500,6 +538,7 @@ services:
   family: database
   ports: ["5432/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Brute force, then COPY ... PROGRAM gives OS command execution. Heavily targeted by crypto-miners."
   passive: "net:<CIDR> port:5432"
   proof: {rung: E2, cmd: "nmap -Pn -p5432 -sV <ip>", exposed_if: "PostgreSQL responds. Auth testing is roe_gated"}
@@ -513,6 +552,7 @@ services:
   family: database
   ports: ["1521/tcp", "1526/tcp"]
   weight: critical
+  agent_expected: true
   risk: "SID guessing, default accounts, TNS poisoning history."
   passive: "net:<CIDR> port:1521"
   proof: {rung: E2, cmd: "nmap -Pn -p1521 --script oracle-tns-version <ip>", exposed_if: "TNS version returned"}
@@ -526,6 +566,7 @@ services:
   family: database
   ports: ["27017/tcp", "27018/tcp", "27019/tcp"]
   weight: critical
+  agent_expected: true
   risk: "200k+ exposed (Flare 2026). Unauthenticated instances are wiped and ransomed automatically, and many already carry ransom notes."
   passive: "net:<CIDR> port:27017"
   proof: {rung: E3, cmd: "nmap -Pn -p27017 --script mongodb-databases <ip>", exposed_if: "Database NAMES returned without auth = E3 (names only, never read collections). buildInfo/version alone = E2 (answered even with auth on). A database named like 'READ_ME_TO_RECOVER' = attacker evidence, force P1"}
@@ -540,6 +581,7 @@ services:
   family: database
   ports: ["6379/tcp", "6380/tcp", "16379/tcp"]
   weight: critical
+  agent_expected: true
   risk: "No auth by default on older builds. CONFIG SET leads to file write and RCE. Lua sandbox escapes. Prime crypto-miner target."
   passive: "net:<CIDR> port:6379"
   proof: {rung: E3, cmd: "nmap -Pn -p6379 --script redis-info <ip>", exposed_if: "INFO returns data without NOAUTH = unauthenticated (force P1)"}
@@ -554,6 +596,7 @@ services:
   family: database
   ports: ["9200/tcp", "9300/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Historically no auth by default. Exposed clusters are the largest single source of PII leaks, and almost all exposed ones are ransomed."
   passive: "net:<CIDR> port:9200"
   proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<ip>:9200/; curl -s -o /dev/null -w '%{http_code}' http://<ip>:9200/", exposed_if: "200 with cluster JSON = unauthenticated. 401 = auth on (E2). 000 on http only = TLS-only listener (8.x default), use the https result"}
@@ -567,6 +610,7 @@ services:
   family: database
   ports: ["9042/tcp", "7000/tcp", "7199/tcp"]
   weight: critical
+  agent_expected: true
   risk: "AllowAllAuthenticator default. JMX on 7199 can lead to RCE."
   passive: "net:<CIDR> port:9042"
   proof: {rung: E2, cmd: "nmap -Pn -p9042,7199 -sV <ip>", exposed_if: "CQL native protocol and/or JMX identified. Testing for AllowAllAuthenticator (cqlsh with no credentials) is roe_gated"}
@@ -580,6 +624,7 @@ services:
   family: database
   ports: ["5984/tcp", "6984/tcp"]
   weight: critical
+  agent_expected: true
   risk: "'Admin party' mode (no admin) on old installs gives full read/write. History of RCE."
   passive: "net:<CIDR> port:5984"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:5984/_all_dbs", exposed_if: "200 = database names listable without auth"}
@@ -593,6 +638,7 @@ services:
   family: database
   ports: ["11211/tcp", "11211/udp"]
   weight: high
+  agent_expected: true
   risk: "No auth. Exposes cached sessions and tokens. UDP is a 10,000x+ DDoS amplifier."
   passive: "net:<CIDR> port:11211"
   proof: {rung: E3, cmd: "nmap -Pn -p11211 --script memcached-info <ip>", exposed_if: "Stats returned. UDP enabled = amplifier"}
@@ -606,6 +652,7 @@ services:
   family: database
   ports: ["8086/tcp", "8088/tcp"]
   weight: high
+  agent_expected: true
   risk: "Telemetry and metrics with auth disabled. Leaks infrastructure and sometimes business data."
   passive: "net:<CIDR> port:8086"
   proof: {rung: E2, cmd: "curl -s -D - -o /dev/null http://<ip>:8086/ping", exposed_if: "X-Influxdb-Version header returned"}
@@ -619,6 +666,7 @@ services:
   family: database
   ports: ["8123/tcp", "9000/tcp", "9440/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Default user with no password on many deployments. Analytic stores hold log and PII lakes."
   passive: "net:<CIDR> port:8123"
   proof: {rung: E2, cmd: "curl -s http://<ip>:8123/ping", exposed_if: "'Ok.' returned. Testing the default user is roe_gated"}
@@ -632,6 +680,7 @@ services:
   family: database
   ports: ["7474/tcp", "7473/tcp", "7687/tcp"]
   weight: high
+  agent_expected: true
   risk: "Graph stores often hold identity and relationship data. Default credentials and old auth-disabled installs are common."
   passive: "net:<CIDR> port:7474"
   proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:7474/", exposed_if: "Discovery JSON or browser served"}
@@ -646,6 +695,7 @@ services:
   family: broker
   ports: ["5672/tcp", "15672/tcp", "25672/tcp", "4369/tcp"]
   weight: high
+  agent_expected: true
   risk: "Management UI default credentials. The Erlang distribution port with a guessable cookie leads to RCE."
   passive: "net:<CIDR> port:15672,4369"
   proof: {rung: E2, cmd: "nmap -Pn -p5672,15672,4369,25672 -sV --script http-title <ip>", exposed_if: "Management UI or epmd reachable. epmd/25672 exposed = escalate"}
@@ -659,6 +709,7 @@ services:
   family: broker
   ports: ["9092/tcp", "9093/tcp"]
   weight: high
+  agent_expected: true
   risk: "PLAINTEXT listeners with no auth. Topics carry business events and PII."
   passive: "net:<CIDR> port:9092"
   proof: {rung: E3, cmd: "kcat -b <ip>:9092 -L -m 5", exposed_if: "Cluster metadata and topic names returned without SASL. Do not consume messages"}
@@ -672,6 +723,7 @@ services:
   family: broker
   ports: ["1883/tcp", "8883/tcp", "8083/tcp"]
   weight: high
+  agent_expected: true
   risk: "Anonymous brokers expose IoT and OT telemetry and accept commands."
   passive: "net:<CIDR> port:1883"
   proof: {rung: E2, cmd: "nmap -Pn -p1883,8883 -sV <ip>", exposed_if: "Broker responds. Anonymous-connect testing is roe_gated (it can subscribe to live data)"}
@@ -685,6 +737,7 @@ services:
   family: broker
   ports: ["2181/tcp", "2888/tcp", "3888/tcp"]
   weight: high
+  agent_expected: true
   risk: "Unauthenticated znodes hold cluster config and secrets."
   passive: "net:<CIDR> port:2181"
   proof: {rung: E2, cmd: "echo srvr | nc -w 3 <ip> 2181", exposed_if: "Server stats returned (four-letter words enabled)"}
@@ -698,6 +751,7 @@ services:
   family: broker
   ports: ["61616/tcp", "8161/tcp"]
   weight: critical
+  agent_expected: true
   risk: "OpenWire deserialisation RCE was mass-exploited for ransomware. The web console uses default admin/admin."
   passive: "net:<CIDR> port:61616"
   proof: {rung: E2, cmd: "nmap -Pn -p61616,8161 -sV <ip>", exposed_if: "Broker version in OpenWire banner"}
@@ -713,6 +767,7 @@ services:
   family: container
   ports: ["2375/tcp", "2376/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Unauthenticated 2375 = root on the host by design. Mass-exploited for crypto-mining within minutes of exposure."
   passive: "net:<CIDR> port:2375"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:2375/version", exposed_if: "200 = unauthenticated API (force P1)"}
@@ -726,6 +781,7 @@ services:
   family: container
   ports: ["6443/tcp", "443/tcp", "8443/tcp", "8080/tcp"]
   weight: high
+  agent_expected: true
   risk: "Public control plane. Anonymous auth or permissive RBAC (system:anonymous bindings) gives cluster takeover. Insecure port 8080 on old clusters."
   passive: "net:<CIDR> port:6443 \"kubernetes\""
   proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<ip>:6443/api/v1/namespaces", exposed_if: "200 = anonymous read (force P1). 401/403 = public endpoint only (E2, still score Reach)"}
@@ -739,6 +795,7 @@ services:
   family: container
   ports: ["10250/tcp", "10255/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Unauthenticated kubelet allows exec into any pod on the node. 10255 is a read-only info leak."
   passive: "net:<CIDR> port:10250"
   proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<ip>:10250/pods", exposed_if: "200 = unauthenticated kubelet (force P1). 401/403 = authn/authz enforced (E2, still score Reach)"}
@@ -752,6 +809,7 @@ services:
   family: container
   ports: ["2379/tcp", "2380/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Holds every Kubernetes Secret. Without client-cert auth, it means full cluster compromise."
   passive: "net:<CIDR> port:2379"
   proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:2379/version", exposed_if: "200 over plain HTTP = no mTLS (force P1). Never read keys"}
@@ -765,6 +823,7 @@ services:
   family: container
   ports: ["443/tcp", "8443/tcp", "9000/tcp", "9443/tcp", "30000-32767/tcp"]
   weight: critical
+  agent_expected: true
   risk: "One login (sometimes none: skip-login dashboards) controls workloads and secrets."
   passive: "org:\"<ORG>\" http.title:\"Kubernetes Dashboard\",\"Portainer\",\"Rancher\",\"Argo CD\""
   proof: {rung: E2, cmd: "nmap -Pn -p443,8443,9000,9443 --script http-title <ip>", exposed_if: "Console reachable. A skip-login option visible = escalate"}
@@ -778,6 +837,7 @@ services:
   family: container
   ports: ["5000/tcp", "443/tcp", "8081/tcp"]
   weight: high
+  agent_expected: true
   risk: "Anonymous pull leaks images with baked-in secrets. Anonymous push leads to supply-chain poisoning."
   passive: "net:<CIDR> port:5000 \"Docker-Distribution-Api-Version\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:5000/v2/_catalog", exposed_if: "200 = repository names listable without auth"}
@@ -792,6 +852,7 @@ services:
   family: devops
   ports: ["8080/tcp", "443/tcp", "50000/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Holds deployment credentials for everything. Anonymous read and the script console are common. Repeated KEVs."
   passive: "org:\"<ORG>\" \"X-Jenkins\""
   proof: {rung: E3, cmd: "curl -s -D - -o /dev/null http://<ip>:8080/api/json", exposed_if: "X-Jenkins header (E2). 200 on /api/json = anonymous read (E3)"}
@@ -806,6 +867,7 @@ services:
   family: devops
   ports: ["443/tcp", "80/tcp", "3000/tcp", "7990/tcp", "22/tcp"]
   weight: high
+  agent_expected: true
   risk: "Public projects leak code and secrets. Open sign-up gives internal access. Account-takeover CVEs."
   passive: "org:\"<ORG>\" http.title:\"GitLab\",\"Gitea\",\"Bitbucket\""
   proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<host>/explore/projects", exposed_if: "Public project listing reachable without login (metadata only)"}
@@ -820,6 +882,7 @@ services:
   family: devops
   ports: ["9000/tcp"]
   weight: high
+  agent_expected: true
   risk: "Force-authentication off lets anyone browse source snippets and findings."
   passive: "net:<CIDR> port:9000 http.title:\"SonarQube\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'http://<ip>:9000/api/components/search?qualifiers=TRK&ps=1'", exposed_if: "200 = projects browsable anonymously (Force user authentication off)"}
@@ -833,6 +896,7 @@ services:
   family: observability
   ports: ["3000/tcp"]
   weight: high
+  agent_expected: true
   risk: "Default admin/admin, anonymous org viewer, data-source credentials, and path-traversal history."
   passive: "net:<CIDR> port:3000 http.title:\"Grafana\""
   proof: {rung: E2, cmd: "curl -s http://<ip>:3000/api/health", exposed_if: "Health JSON with version returned"}
@@ -847,6 +911,7 @@ services:
   family: observability
   ports: ["5601/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Front end to Elasticsearch. Unauthenticated access exposes every indexed log, often including credentials and PII."
   passive: "net:<CIDR> port:5601"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:5601/api/status", exposed_if: "200 without auth = open dashboards"}
@@ -860,6 +925,7 @@ services:
   family: observability
   ports: ["9090/tcp", "9093/tcp", "9100/tcp"]
   weight: medium
+  agent_expected: true
   risk: "No auth by design. Targets and labels map the internal network, and some configs embed credentials."
   passive: "net:<CIDR> port:9090 http.title:\"Prometheus\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:9090/api/v1/status/buildinfo", exposed_if: "200 = open (metadata only; do not dump targets beyond a count)"}
@@ -873,6 +939,7 @@ services:
   family: devops
   ports: ["8500/tcp", "8501/tcp", "4646/tcp", "8200/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Consul/Nomad without ACLs allow arbitrary job or script execution. An exposed Vault UI is a high-value login surface."
   passive: "net:<CIDR> port:8500,4646,8200"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8500/v1/agent/self; curl -s -o /dev/null -w '%{http_code}' http://<ip>:4646/v1/agent/self", exposed_if: "200 = ACLs disabled (force P1). Vault /v1/sys/health 200 = E2 only"}
@@ -886,6 +953,7 @@ services:
   family: data-platform
   ports: ["8888/tcp", "8000/tcp"]
   weight: critical
+  agent_expected: true
   risk: "A token-less notebook is a browser shell with the data scientist's cloud credentials."
   passive: "net:<CIDR> port:8888 http.title:\"Jupyter\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8888/api/kernels", exposed_if: "200 = no token/password (force P1)"}
@@ -899,6 +967,7 @@ services:
   family: data-platform
   ports: ["8088/tcp", "6066/tcp", "8081/tcp", "9870/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Unauthenticated job submission = RCE (long-running crypto-mining campaigns). HDFS UI browses data."
   passive: "net:<CIDR> port:8088,6066,8081"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8088/ws/v1/cluster/info", exposed_if: "200 = open ResourceManager. Never submit a job"}
@@ -913,6 +982,7 @@ services:
   family: devops
   ports: ["4444/tcp"]
   weight: high
+  agent_expected: true
   risk: "No auth by default. Abused to run arbitrary browser sessions and for crypto-mining or proxying."
   passive: "net:<CIDR> port:4444 \"Selenium\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:4444/status", exposed_if: "200 with ready status"}
@@ -926,6 +996,7 @@ services:
   family: devops
   ports: ["80/tcp", "443/tcp", "8080/tcp", "8081/tcp", "5050/tcp"]
   weight: high
+  agent_expected: true
   risk: "Brute-forceable path to the database. Some ship with auth off (Mongo Express basic auth disabled)."
   passive: "org:\"<ORG>\" http.title:\"phpMyAdmin\",\"Adminer\",\"pgAdmin\",\"Mongo Express\""
   proof: {rung: E2, cmd: "nmap -Pn -p80,443,8080,8081,5050 --script http-title <ip>", exposed_if: "Panel login page reachable"}
@@ -939,6 +1010,7 @@ services:
   family: devops
   ports: ["5005/tcp", "8000/tcp", "9229/tcp", "9000/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Remote code execution by design. Usually a forgotten debug flag in production."
   passive: "net:<CIDR> port:9229,5005"
   proof: {rung: E2, cmd: "nmap -Pn -p5005,8000 --script jdwp-version <ip>; curl -s http://<ip>:9229/json/version", exposed_if: "JDWP handshake or inspector JSON returned (force P1; never attach)"}
@@ -952,6 +1024,7 @@ services:
   family: devops
   ports: ["1099/tcp", "1098/tcp", "9010/tcp", "7199/tcp"]
   weight: high
+  agent_expected: true
   risk: "Unauthenticated JMX gives MBean RCE. RMI has deserialisation gadget history."
   passive: "net:<CIDR> port:1099"
   proof: {rung: E2, cmd: "nmap -Pn -p1099 --script rmi-dumpregistry <ip>", exposed_if: "Registry bound names returned"}
@@ -966,6 +1039,7 @@ services:
   family: ai
   ports: ["11434/tcp"]
   weight: high
+  agent_expected: true
   risk: "No auth by design. Free compute for attackers (LLMjacking), model theft or poisoning, path-traversal history. Tens of thousands exposed (2026)."
   passive: "net:<CIDR> port:11434"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:11434/api/tags", exposed_if: "200 = model list without auth. Do not send prompts or pull or push models"}
@@ -980,6 +1054,7 @@ services:
   family: ai
   ports: ["8000/tcp", "8080/tcp", "1234/tcp", "5000/tcp"]
   weight: high
+  agent_expected: true
   risk: "Unauthenticated /v1 endpoints are abused for free inference and prompt injection into downstream agents."
   passive: "net:<CIDR> \"/v1/models\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8000/v1/models", exposed_if: "200 = models listed without an API key"}
@@ -993,6 +1068,7 @@ services:
   family: ai
   ports: ["8265/tcp", "10001/tcp", "6379/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Unauthenticated job submission = RCE on GPU clusters (ShadowRay campaigns: crypto-mining, credential theft)."
   passive: "net:<CIDR> port:8265 http.title:\"Ray Dashboard\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8265/api/jobs/", exposed_if: "200 = jobs API open (force P1). Never submit a job"}
@@ -1007,6 +1083,7 @@ services:
   family: ai
   ports: ["443/tcp", "3000/tcp", "8000/tcp", "8080/tcp"]
   weight: critical
+  agent_expected: true
   risk: "The spec does not mandate auth. An exposed MCP server is an unauthenticated RPC into whatever tools it wraps (files, DBs, SaaS, shell). Censys: 12.5k to 21k+ exposed in 2026."
   passive: "org:\"<ORG>\" \"mcp\" OR \"text/event-stream\" (validate in Censys/Netlas with their MCP fingerprints)"
   proof: {rung: E3, cmd: "curl -s -X POST https://<host>/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"outside-in\",\"version\":\"0.1\"}}}'", exposed_if: "serverInfo returned without auth = E3. tools/list is allowed only to judge blast radius (force P1 if tools touch data or execute). Never call tools/call"}
@@ -1020,6 +1097,7 @@ services:
   family: ai
   ports: ["7860/tcp", "3000/tcp", "5678/tcp", "80/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Store API keys for every connected LLM and SaaS. Code-execution features and unauth RCE KEVs."
   passive: "org:\"<ORG>\" http.title:\"Langflow\",\"Flowise\",\"n8n\",\"Dify\""
   proof: {rung: E2, cmd: "nmap -Pn -p7860,3000,5678,80 --script http-title <ip>", exposed_if: "Builder UI reachable; check whether login is enforced"}
@@ -1034,6 +1112,7 @@ services:
   family: ai
   ports: ["7860/tcp", "8501/tcp", "8188/tcp", "8080/tcp"]
   weight: medium
+  agent_expected: true
   risk: "Prototypes left public: compute abuse, data leakage via prompts and uploads, and custom-node RCE (ComfyUI)."
   passive: "org:\"<ORG>\" http.title:\"Gradio\",\"Streamlit\",\"ComfyUI\",\"Open WebUI\""
   proof: {rung: E2, cmd: "nmap -Pn -p7860,8501,8188,8080 --script http-title <ip>", exposed_if: "App UI reachable without SSO"}
@@ -1047,6 +1126,7 @@ services:
   family: ai
   ports: ["6333/tcp", "8080/tcp", "19530/tcp", "8000/tcp"]
   weight: critical
+  agent_expected: true
   risk: "Embeddings of internal documents can be read, inverted or poisoned (RAG poisoning, then indirect prompt injection)."
   passive: "net:<CIDR> port:6333,19530"
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:6333/collections", exposed_if: "200 = collection names without API key"}
@@ -1060,6 +1140,7 @@ services:
   family: ai
   ports: ["5000/tcp"]
   weight: high
+  agent_expected: true
   risk: "No auth by default. Models, artefacts, and cloud storage credentials in run params. LFI history."
   passive: "net:<CIDR> port:5000 http.title:\"MLflow\""
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"max_results\":1}' http://<ip>:5000/api/2.0/mlflow/experiments/search", exposed_if: "200 without auth = open tracking server"}
@@ -1075,6 +1156,7 @@ services:
   family: network-service
   ports: ["53/udp", "53/tcp"]
   weight: medium
+  agent_expected: false
   risk: "Reflection and amplification source. Cache-poisoning target. Sometimes leaks internal zones."
   passive: "net:<CIDR> port:53 \"Recursion: enabled\""
   proof: {rung: E3, cmd: "nmap -Pn -sU -p53 --script dns-recursion <ip>", exposed_if: "Recursion enabled for external clients"}
@@ -1088,6 +1170,7 @@ services:
   family: network-service
   ports: ["123/udp"]
   weight: medium
+  agent_expected: false
   risk: "monlist amplification. Leaks recent client IPs."
   passive: "net:<CIDR> port:123"
   proof: {rung: E3, cmd: "nmap -Pn -sU -p123 --script ntp-info,ntp-monlist <ip>", exposed_if: "monlist returns entries"}
@@ -1102,6 +1185,7 @@ services:
   family: network-service
   ports: ["1900/udp", "5000/tcp", "49152/tcp"]
   weight: medium
+  agent_expected: false
   risk: "Amplification source. UPnP IGD can open further ports on demand, which manufactures new exposures."
   passive: "net:<CIDR> port:1900"
   proof: {rung: E3, cmd: "nmap -Pn -sU -p1900 --script upnp-info <ip>", exposed_if: "Device description returned"}
@@ -1116,6 +1200,7 @@ services:
   family: iot
   ports: ["5060/udp", "5060/tcp", "5061/tcp"]
   weight: medium
+  agent_expected: false
   risk: "Extension brute force leads to toll fraud. PBX web UIs carry RCE history."
   passive: "net:<CIDR> port:5060"
   proof: {rung: E2, cmd: "nmap -Pn -sU -p5060 --script sip-methods <ip>", exposed_if: "SIP OPTIONS answered with a user-agent"}
@@ -1129,6 +1214,7 @@ services:
   family: iot
   ports: ["631/tcp", "9100/tcp", "515/tcp"]
   weight: medium
+  agent_expected: false
   risk: "Print-job injection, stored documents, credential capture via LDAP/SMB settings, and CUPS RCE history."
   passive: "net:<CIDR> port:631,9100"
   proof: {rung: E2, cmd: "nmap -Pn -p631,9100,515 -sV <ip>", exposed_if: "Printer service identified"}
@@ -1142,6 +1228,7 @@ services:
   family: iot
   ports: ["554/tcp", "8554/tcp", "37777/tcp", "8000/tcp", "80/tcp"]
   weight: high
+  agent_expected: false
   risk: "Physical-security and privacy exposure. Botnet recruitment. Pivot into the corporate LAN."
   passive: "net:<CIDR> port:554,37777"
   proof: {rung: E2, cmd: "nmap -Pn -p554,8554 --script rtsp-methods <ip>", exposed_if: "RTSP answers. Do not attempt to view streams"}
@@ -1158,6 +1245,7 @@ services:
   family: ot-ics
   ports: ["502/tcp", "20000/tcp", "2404/tcp", "44818/tcp"]
   weight: critical
+  agent_expected: false
   risk: "No authentication in the protocol. Direct read/write of process values."
   passive: "net:<CIDR> port:502,20000,2404,44818"
   proof: {rung: E0, roe_gated: true, cmd: "OT owner confirms. Only with OT approval: nmap -Pn -p502 --script modbus-discover <ip>", exposed_if: "Scan DB shows a protocol response from our space"}
@@ -1171,6 +1259,7 @@ services:
   family: ot-ics
   ports: ["102/tcp", "1911/tcp", "4911/tcp", "47808/udp", "4840/tcp"]
   weight: critical
+  agent_expected: false
   risk: "PLC and BMS identity leaks (model, firmware, project names) and direct control of building or plant systems."
   passive: "net:<CIDR> port:102,1911,47808,4840"
   proof: {rung: E0, roe_gated: true, cmd: "OT owner confirms. Only with OT approval: nmap -Pn -p102 --script s7-info <ip> / -sU -p47808 --script bacnet-info", exposed_if: "Scan DB shows a device banner from our space"}

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 (2026-11-14)
+
+**EDR coverage gaps on exposed hosts.**
+
+- Every catalog class now carries `agent_expected`: 65 of 86 service classes and 3 of 43 cloud classes, where the
+  exposure sits on a host or container node that should run EDR.
+- Finding schema: new `asset.controls.edr` (`healthy` / `stale` / `missing` / `not-applicable` / `unknown`), plus
+  last-seen and source fields, and a new override `lift-no-edr`.
+- Methodology: a missing or stale agent on an `agent_expected` class lifts the finding one band. Endpoint-dependent
+  DETs become `detection_gaps`. A healthy agent never lowers the band. Assets are joined on resource ID and hostname,
+  never public IP.
+- Triage skill Step 2b, an exec-brief "endpoint coverage" line, an operating-model metric, and ADR-009.
+- Examples updated: the RDP finding shows a stale agent; the GCS bucket is `not-applicable`.
+- Docs: a worked example `docs/examples/gcs-public-bucket.md`, `docs/install.md`, and a 60-second README.
+
 ## 0.3.0 (2026-11-14)
 
 Release-readiness pass for publication at `github.com/d6falcon/outside-in`.

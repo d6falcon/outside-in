@@ -169,6 +169,34 @@ EPS = Reach (0–25) + Class (0–25) + Pressure (0–25) + Blast (0–25)
 - **Lift one band** when the asset is unmanaged (A2 and not in inventory). Nobody is patching it.
 - **Lift one band** when the exposure has **regressed** (it was `closed-verified` and is open again). The guardrail is
   missing or was bypassed.
+- **Lift one band** when the catalog class has `agent_expected: true` and the asset's EDR is **missing** or **stale**
+  (see *Control coverage* below). It is reachable, and if it is hit, nobody will see it.
+
+Each lift applies at most once per finding, and lifts never go above P1.
+
+### Control coverage: EDR on exposed hosts
+
+An exposed host without a working EDR agent is a blind spot, and it quietly breaks the SOC hand-off, because most
+endpoint-based detection strategies (for example DET0384 shell execution, DET0394 web shells, DET0290 cron
+persistence, DET0540 compute hijacking) need that telemetry to fire.
+
+| State | Meaning |
+|---|---|
+| `healthy` | Agent present, checked in within 7 days, full prevention or detection mode |
+| `stale` | Agent present but silent for more than 7 days, or in a reduced-functionality mode |
+| `missing` | Not in the EDR console at all |
+| `not-applicable` | Catalog class has `agent_expected: false` (appliance, BMC, hypervisor, IoT, OT, managed cloud service) |
+| `unknown` | Not yet joined. Treat as `missing` for scoring until resolved |
+
+Rules:
+
+1. **Join on stable identifiers:** the cloud instance or resource ID and the hostname, never the public IP alone,
+   because cloud IPs are reused.
+2. **Missing or stale on an `agent_expected` class:** apply the override above, and record the endpoint-dependent
+   `soc_watch` DETs for that asset as `detection_gaps`.
+3. **A healthy agent never lowers the band.** EDR does not reduce Reach; it only improves the odds of seeing the
+   attack. Removing the exposure is still the fix. Deploying the agent is the interim safety net, and a valid
+   compensating control in an exception.
 
 ### EPS and your prioritisation engine
 
