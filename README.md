@@ -40,6 +40,8 @@ flowchart LR
 
 [Methodology →](docs/methodology.md) · [Operating model →](docs/operating-model.md) · [Design decisions →](docs/architecture-decisions.md)
 
+**See it end to end:** [a public GCS bucket with customer data, from discovery to `closed-verified` →](docs/examples/gcs-public-bucket.md)
+
 ## What's inside
 
 | | |
