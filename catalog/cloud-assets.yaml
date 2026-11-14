@@ -1,0 +1,685 @@
+# outside-in :: exposed cloud assets catalog
+# ATT&CK Enterprise v20.1. Every T/DET/M ID is checked by scripts/Update-AttackMapping.ps1.
+#
+# Field guide (extends services.yaml)
+#   discover     outside-in ways to find the asset (OSINT, passive, or least-touch)
+#   proof        outside-in probe + evidence rung (docs/methodology.md section 4). Status-code or metadata only.
+#   inside_out   READ-ONLY command the owning team runs to confirm (rung E4). Needs their credentials, not yours.
+#   stranger     optional: what the world sees, run from a separate NON-org "audit stranger" cloud account you control.
+#                This proves public sharing without touching the target's data.
+#   guardrail    preventive org-wide control that stops the whole class from recurring
+#
+# Regions. Concrete examples use London: AWS eu-west-2, Google Cloud europe-west2 (zone europe-west2-a), Azure uksouth.
+# <r> means "repeat for every region in use". Global-only endpoints (AWS IAM events in us-east-1, ECR Public in
+# us-east-1, GCP workload identity pools at 'global') are kept as-is because they are fixed by the provider.
+#
+# Publishable vs secret identifiers. Some values are public by design: Firebase apiKey, the Supabase anon/publishable
+# key, Google Maps browser keys, Cognito identity pool IDs. Using them exactly as the public front end does is in
+# scope. Real secrets (service_role keys, access keys, SAS tokens, SA JSON, client secrets) are NEVER used.
+
+schema_version: 1
+attack_version: "20.1"
+defaults:
+  recon: [T1593.002, T1593.003, T1596.001, T1596.003, T1619, T1526, T1580]
+  recon_watch: [DET0811, DET0805, DET0578, DET0402, DET0169]
+
+cloud_assets:
+
+# ───────────────────────────── object storage ─────────────────────────────
+- id: aws-s3-public-read
+  name: Amazon S3 bucket publicly listable or readable
+  provider: aws
+  family: storage
+  weight: critical
+  risk: "Bulk data exposure: backups, exports, logs, IaC state, PII. Automated bucket-hunters index new public buckets within hours."
+  discover: ["Bucket names in CNAMEs, CSP headers, JS bundles and mobile apps", "Org-name permutations, checked existence-only", "Public bucket search indexes (e.g. GrayhatWarfare) filtered to our names", "Wayback / CT for *.s3*.amazonaws.com references"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<bucket>.s3.amazonaws.com/?list-type=2&max-keys=1'", exposed_if: "200 = anonymous listing. 403 = exists, private. 404 NoSuchBucket = check for dangling references (see dangling-dns-cloud). Record key NAMES/count only"}
+  inside_out: "aws s3api get-bucket-policy-status --bucket <bucket>; aws s3api get-public-access-block --bucket <bucket>; aws s3control get-public-access-block --account-id <acct>; aws accessanalyzer list-findings --analyzer-arn <arn> --filter '{\"resourceType\":{\"eq\":[\"AWS::S3::Bucket\"]},\"status\":{\"eq\":[\"ACTIVE\"]}}'"
+  attack: {access: [T1530], follow_on: [T1619, T1567.002, T1552.001]}
+  soc_watch: [DET0484, DET0578, DET0570, DET0307]
+  mitigations: [M1022, M1041, M1047, M1037]
+  fix: "Turn on Block Public Access at the bucket and account level. Remove the public ACL and policy. Serve public content through CloudFront with Origin Access Control."
+  guardrail: "S3 Block Public Access at account level for every account, enforced by an SCP denying s3:PutAccountPublicAccessBlock / s3:PutBucketPublicAccessBlock changes. IAM Access Analyzer org-wide."
+
+- id: aws-s3-public-write
+  name: Amazon S3 bucket publicly writable (ACL or policy)
+  provider: aws
+  family: storage
+  weight: critical
+  risk: "Supply-chain poisoning of hosted JS, installers or packages. Malware staging on your domain. Data overwrite and deletion (ransom)."
+  discover: ["Same as aws-s3-public-read", "Buckets that serve static assets (CNAME targets, <script src>)"]
+  proof: {rung: E2, cmd: "Do NOT test by writing. Use stranger and inside_out instead", exposed_if: "Policy or ACL grants s3:PutObject / WRITE to * or AllUsers / AuthenticatedUsers"}
+  inside_out: "aws s3api get-bucket-acl --bucket <bucket>; aws s3api get-bucket-policy --bucket <bucket> --query Policy --output text"
+  attack: {access: [T1608.001, T1195.002], follow_on: [T1485, T1486, T1189]}
+  soc_watch: [DET0824, DET0309, DET0146, DET0215, DET0176]
+  mitigations: [M1022, M1018, M1047, M1053]
+  fix: "Remove the write grants, enable versioning plus Object Lock for critical buckets, and verify hosted assets with SRI hashes."
+  guardrail: "Same as aws-s3-public-read, plus an SCP denying PutBucketAcl with public grants. Use AWS Config managed rules s3-bucket-public-write-prohibited and s3-bucket-public-read-prohibited."
+
+- id: azure-blob-anonymous
+  name: Azure Blob container with anonymous (public) access
+  provider: azure
+  family: storage
+  weight: critical
+  risk: "Container- or blob-level anonymous read. Account names are globally unique DNS, so they are easy to enumerate."
+  discover: ["<acct>.blob.core.windows.net references in code, CNAMEs and CT", "DNS existence check of org-name permutations (nslookup <acct>.blob.core.windows.net)"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<acct>.blob.core.windows.net/<container>?restype=container&comp=list&maxresults=1'", exposed_if: "200 = anonymous container listing (E3). 409 PublicAccessNotPermitted = account blocks anonymous access. 404 = not listable anonymously, but blob-level anonymous read may still be on, so confirm inside-out"}
+  inside_out: "az storage account list --query \"[?allowBlobPublicAccess!=`false`].{name:name,rg:resourceGroup,allow:allowBlobPublicAccess}\" (null = not explicitly disabled, treat as allowed); az storage container list --account-name <acct> --auth-mode login --query \"[?properties.publicAccess].name\""
+  attack: {access: [T1530], follow_on: [T1619, T1567.002]}
+  soc_watch: [DET0484, DET0578, DET0570]
+  mitigations: [M1022, M1041, M1047]
+  fix: "Set allowBlobPublicAccess=false on the storage account. Serve public content via Front Door or CDN with private origin access."
+  guardrail: "Azure Policy built-in 'Storage account public access should be disallowed' (Deny) at the management-group root."
+
+- id: azure-sas-overpermissive
+  name: Azure SAS URLs / shared-key access leaked or over-scoped
+  provider: azure
+  family: storage
+  weight: critical
+  risk: "A leaked account-level SAS with long expiry and write or list permissions works like a password that cannot be revoked without rotating keys."
+  discover: ["'sig=' + 'sv=' + '.blob.core.windows.net' in public repos, docs, mobile apps, support tickets, Postman workspaces"]
+  proof: {rung: E2, cmd: "Parse the leaked URL OFFLINE only: sp= (permissions), se= (expiry), srt=/ss= (account SAS scope). Never call it", exposed_if: "Unexpired SAS with list, write or delete scope, or account-level scope"}
+  inside_out: "az storage account show -n <acct> -g <rg> --query \"{sharedKey:allowSharedKeyAccess,sasPolicy:sasPolicy,keyPolicy:keyPolicy}\""
+  attack: {access: [T1550.001], follow_on: [T1530, T1485, T1486]}
+  soc_watch: [DET0185, DET0484, DET0146, DET0215]
+  mitigations: [M1041, M1047, M1018]
+  fix: "First identify which account key (key1 or key2) signed the SAS, then fail every app over to the OTHER key. Only then rotate the signing key (az storage account keys renew), because renewal breaks every app and SAS using it. For user-delegation SAS, revoke the delegation keys instead. Prefer short-lived user-delegation SAS. Set allowSharedKeyAccess=false where possible."
+  guardrail: "SAS expiration policy on every account. Azure Policy to disallow shared-key access. Secret scanning with push protection."
+
+- id: gcs-allusers
+  name: Google Cloud Storage bucket granted to allUsers / allAuthenticatedUsers
+  provider: gcp
+  family: storage
+  weight: critical
+  risk: "allAuthenticatedUsers means ANY Google account, not your org. This is a common misunderstanding."
+  discover: ["storage.googleapis.com/<bucket> and <bucket>.storage.googleapis.com references", "Firebase storage buckets (<project>.appspot.com / <project>.firebasestorage.app)"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://storage.googleapis.com/storage/v1/b/<bucket>/o?maxResults=1'", exposed_if: "200 = public listing (E3). 401/403 = not listable anonymously, but individual objects may still be public via allUsers object read, so confirm inside-out. 404 = not found"}
+  inside_out: "gcloud storage buckets get-iam-policy gs://<bucket> --format=json; gcloud storage buckets describe gs://<bucket> --format='value(public_access_prevention)'"
+  attack: {access: [T1530], follow_on: [T1619, T1567.002]}
+  soc_watch: [DET0484, DET0578, DET0570]
+  mitigations: [M1022, M1041, M1047]
+  fix: "Remove the allUsers and allAuthenticatedUsers bindings, enforce public access prevention, and use uniform bucket-level access."
+  guardrail: "Org policies constraints/storage.publicAccessPrevention and constraints/iam.allowedPolicyMemberDomains (domain-restricted sharing)."
+
+- id: other-object-storage
+  name: Other S3-compatible / object stores (DigitalOcean Spaces, Cloudflare R2 public buckets, OCI pre-authenticated requests, Alibaba OSS, Backblaze B2, Wasabi)
+  provider: multi
+  family: storage
+  weight: critical
+  risk: "Shadow IT often lands here, outside the main CSPM's view. OCI PAR URLs and r2.dev public URLs work like bearer links."
+  discover: ["*.digitaloceanspaces.com, *.r2.dev, objectstorage.*.oraclecloud.com/p/, *.aliyuncs.com, *.backblazeb2.com references in code, CNAMEs and CT"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' '<endpoint-url>?list-type=2&max-keys=1'", exposed_if: "200 listing or an object served without auth"}
+  inside_out: "Provider console / CLI bucket ACL and policy review. OCI: oci os preauth-request list --bucket-name <b>"
+  attack: {access: [T1530], follow_on: [T1567.002]}
+  soc_watch: [DET0484, DET0570]
+  mitigations: [M1022, M1047]
+  fix: "Bring the account under central governance. Revoke PARs and public links. Make the buckets private."
+  guardrail: "Procurement and SSO gating for cloud sign-ups. Periodic discovery of non-sanctioned providers via DNS and egress logs."
+
+# ───────────────────────────── snapshots, images & backups ─────────────────────────────
+- id: aws-ebs-snapshot-public
+  name: Public Amazon EBS snapshot
+  provider: aws
+  family: snapshot
+  weight: critical
+  risk: "Anyone can copy the full disk into their own account: databases, SSH keys, .env files, browser and credential stores."
+  discover: ["Stranger-account view (below)", "Account IDs recovered from public ARNs or leaked keys (aws sts get-access-key-info, using your OWN audit creds)"]
+  stranger: "aws ec2 describe-snapshots --owner-ids <our-acct> --restorable-by-user-ids all --region <r>"
+  proof: {rung: E3, cmd: "Run the stranger command per region. Snapshot IDs listed = public. Never copy or restore", exposed_if: "Any snapshot returned"}
+  inside_out: "aws ec2 describe-snapshots --owner-ids self --restorable-by-user-ids all --region <r>; aws ec2 get-snapshot-block-public-access-state --region <r>"
+  attack: {access: [T1537], follow_on: [T1552.001, T1552.004, T1078.004]}
+  soc_watch: [DET0573, DET0307, DET0549, DET0546]
+  mitigations: [M1018, M1041, M1054]
+  fix: "Remove the createVolumePermission 'all' grant. Treat everything on the disk as compromised: rotate the secrets it held."
+  guardrail: "aws ec2 enable-snapshot-block-public-access --state block-all-sharing in every region (enforce org-wide with EC2 declarative policies)."
+
+- id: aws-rds-snapshot-public
+  name: Public Amazon RDS / Aurora snapshot
+  provider: aws
+  family: snapshot
+  weight: critical
+  risk: "Complete database restorable by any AWS account."
+  discover: ["Stranger-account view"]
+  stranger: "aws rds describe-db-snapshots --region <r> --include-public --snapshot-type public --query \"DBSnapshots[?contains(DBSnapshotArn, ':<our-acct>:')].DBSnapshotIdentifier\" (run per region in use; it pages through every public snapshot in the region, so expect a long runtime)"
+  proof: {rung: E3, cmd: "Stranger command (also describe-db-cluster-snapshots for Aurora). Never restore", exposed_if: "Any snapshot listed"}
+  inside_out: "aws rds describe-db-snapshot-attributes --db-snapshot-identifier <id> (look for restore = all); aws rds describe-db-cluster-snapshot-attributes --db-cluster-snapshot-identifier <id>"
+  attack: {access: [T1537], follow_on: [T1213.006]}
+  soc_watch: [DET0573, DET0242]
+  mitigations: [M1018, M1041]
+  fix: "Remove 'all' from the restore attribute. Encrypt snapshots with a CMK (encrypted snapshots cannot be shared publicly). Assess as a data breach."
+  guardrail: "SCP denying rds:ModifyDBSnapshotAttribute / ModifyDBClusterSnapshotAttribute except via break-glass. AWS Config rule rds-snapshots-public-prohibited."
+
+- id: aws-ami-public
+  name: Public AMI owned by the organisation
+  provider: aws
+  family: snapshot
+  weight: high
+  risk: "Golden images carry baked-in agents, keys and config. Accidental public sharing is common."
+  discover: ["Stranger-account view"]
+  stranger: "aws ec2 describe-images --owners <our-acct> --executable-users all --region <r>"
+  proof: {rung: E3, cmd: "Stranger command per region. Never launch", exposed_if: "Any image returned"}
+  inside_out: "aws ec2 describe-images --owners self --filters Name=is-public,Values=true --region <r>; aws ec2 get-image-block-public-access-state --region <r>"
+  attack: {access: [T1537], follow_on: [T1552.001, T1552.004]}
+  soc_watch: [DET0573, DET0307, DET0549]
+  mitigations: [M1018, M1054]
+  fix: "Make it private, rotate the embedded secrets, and rebuild images without secrets."
+  guardrail: "aws ec2 enable-image-block-public-access --image-block-public-access-state block-new-sharing (all regions, or via declarative policy)."
+
+- id: azure-disk-sas-export
+  name: Azure managed disk / snapshot with active SAS export or public network access
+  provider: azure
+  family: snapshot
+  weight: critical
+  risk: "A disk export SAS URL gives a downloadable VHD of the full disk."
+  discover: ["md-*.blob.core.windows.net / *.blob.storage.azure.net SAS URLs in tickets, scripts or repos"]
+  proof: {rung: E2, cmd: "Parse the leaked URL offline (expiry). Never download", exposed_if: "Unexpired export SAS"}
+  inside_out: "az disk list --query \"[?diskState=='ActiveSAS' || networkAccessPolicy=='AllowAll'].{name:name,rg:resourceGroup,state:diskState,net:networkAccessPolicy}\"; az snapshot list --query \"[?networkAccessPolicy=='AllowAll'].name\""
+  attack: {access: [T1550.001, T1537], follow_on: [T1552.001]}
+  soc_watch: [DET0185, DET0573, DET0307]
+  mitigations: [M1018, M1041, M1035]
+  fix: "Revoke access (az disk revoke-access). Set networkAccessPolicy to DenyAll or AllowPrivate with a disk-access resource."
+  guardrail: "Azure Policy: managed disks should disable public network access. Use disk-access resources with private links."
+
+- id: gcp-public-images
+  name: GCP compute images / disks / machine images shared publicly
+  provider: gcp
+  family: snapshot
+  weight: high
+  risk: "Same as public AMIs: secrets and configuration baked into shared images."
+  discover: ["Stranger-account view from a non-org account (project-level sharing)", "Image names referenced in IaC, docs or Marketplace listings (image-level sharing)"]
+  stranger: "gcloud compute images list --project <our-project> --no-standard-images (catches project-level sharing only); for a known image name: gcloud compute images describe <image> --project <our-project> (catches image-level allAuthenticatedUsers grants)"
+  proof: {rung: E3, cmd: "Stranger command. Images listed = shared to allAuthenticatedUsers", exposed_if: "Any image visible"}
+  inside_out: "gcloud compute images get-iam-policy <image> --project <p>"
+  attack: {access: [T1537], follow_on: [T1552.001]}
+  soc_watch: [DET0573, DET0307]
+  mitigations: [M1018, M1054]
+  fix: "Remove the allAuthenticatedUsers / allUsers bindings."
+  guardrail: "constraints/iam.allowedPolicyMemberDomains (blocks allUsers / allAuthenticatedUsers bindings on images and disks)."
+
+# ───────────────────────────── managed databases & data services ─────────────────────────────
+- id: aws-rds-public
+  name: Amazon RDS / Aurora publicly accessible
+  provider: aws
+  family: dbaas
+  weight: critical
+  risk: "Internet-routable DB endpoint. One permissive security group away from brute force and data theft."
+  discover: ["*.rds.amazonaws.com in code and config leaks", "Shodan: hostname:rds.amazonaws.com with our account's endpoints"]
+  proof: {rung: E1, cmd: "nmap -Pn -p3306,5432,1433,1521 <endpoint>", exposed_if: "Port open from the internet (see services.yaml for engine-specific proof)"}
+  inside_out: "aws rds describe-db-instances --query 'DBInstances[?PubliclyAccessible].[DBInstanceIdentifier,Endpoint.Address,VpcSecurityGroups[].VpcSecurityGroupId]'"
+  attack: {access: [T1190, T1110.001], follow_on: [T1213.006, T1485]}
+  soc_watch: [DET0080, DET0551, DET0242, DET0146]
+  mitigations: [M1035, M1037, M1027]
+  fix: "PubliclyAccessible=false. Private subnets. IAM DB auth. Reach it via SSM or a bastion."
+  guardrail: "AWS Config rule rds-instance-public-access-check with auto-remediation. SCP condition on rds:CreateDBInstance (rds:PubliclyAccessible = false) where supported."
+
+- id: azure-sql-open-firewall
+  name: Azure SQL / PostgreSQL / MySQL flexible server open firewall
+  provider: azure
+  family: dbaas
+  weight: critical
+  risk: "Rule 0.0.0.0-255.255.255.255 = whole internet. Rule 0.0.0.0-0.0.0.0 ('Allow Azure services') = ANY Azure tenant, including attackers' subscriptions."
+  discover: ["*.database.windows.net / *.postgres.database.azure.com / *.mysql.database.azure.com in code and config"]
+  proof: {rung: E1, cmd: "nmap -Pn -p1433,5432,3306 <server-fqdn>", exposed_if: "TDS/PG/MySQL handshake from an arbitrary internet IP"}
+  inside_out: "Azure SQL: az sql server show -n <srv> -g <rg> --query publicNetworkAccess; az sql server firewall-rule list -s <srv> -g <rg> --query \"[?startIpAddress=='0.0.0.0']\". PostgreSQL flexible: az postgres flexible-server show -g <rg> -n <srv> --query network.publicNetworkAccess; az postgres flexible-server firewall-rule list -g <rg> -n <srv>. MySQL flexible: az mysql flexible-server show -g <rg> -n <srv> --query network.publicNetworkAccess; az mysql flexible-server firewall-rule list -g <rg> -n <srv>"
+  attack: {access: [T1190, T1110.001], follow_on: [T1213.006]}
+  soc_watch: [DET0080, DET0551, DET0242]
+  mitigations: [M1035, M1037, M1032]
+  fix: "publicNetworkAccess=Disabled plus Private Endpoint. Remove broad and 'Allow Azure services' rules. Entra-only auth."
+  guardrail: "Azure Policy: 'Public network access on Azure SQL Database should be disabled' (Deny)."
+
+- id: azure-cosmos-public
+  name: Azure Cosmos DB public network access with key auth
+  provider: azure
+  family: dbaas
+  weight: critical
+  risk: "Primary keys grant full data-plane access from anywhere when network rules are open."
+  discover: ["*.documents.azure.com references, AccountKey= in leaks"]
+  proof: {rung: E1, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<acct>.documents.azure.com/", exposed_if: "Responds from the internet (401 expected without key)"}
+  inside_out: "az cosmosdb show -n <acct> -g <rg> --query \"{public:publicNetworkAccess,ipRules:ipRules,localAuthDisabled:disableLocalAuth}\""
+  attack: {access: [T1078.004, T1190], follow_on: [T1213.006, T1485]}
+  soc_watch: [DET0546, DET0080, DET0242, DET0146]
+  mitigations: [M1035, M1041, M1018]
+  fix: "Private endpoint, disableLocalAuth=true (Entra RBAC), rotate keys."
+  guardrail: "Azure Policy: Cosmos DB should disable public network access / local auth."
+
+- id: gcp-cloudsql-open
+  name: Cloud SQL with public IP and broad authorized networks
+  provider: gcp
+  family: dbaas
+  weight: critical
+  risk: "0.0.0.0/0 in authorizedNetworks = internet-exposed DB."
+  discover: ["Cloud SQL public IPs in GCP ranges serving 3306/5432/1433"]
+  proof: {rung: E1, cmd: "nmap -Pn -p3306,5432,1433 <ip>", exposed_if: "DB port reachable"}
+  inside_out: "gcloud sql instances describe <inst> --format='value(settings.ipConfiguration.ipv4Enabled,settings.ipConfiguration.authorizedNetworks)'"
+  attack: {access: [T1190, T1110.001], follow_on: [T1213.006]}
+  soc_watch: [DET0080, DET0551, DET0242]
+  mitigations: [M1035, M1037]
+  fix: "Private IP, Cloud SQL Auth Proxy, remove 0.0.0.0/0."
+  guardrail: "constraints/sql.restrictPublicIp and constraints/sql.restrictAuthorizedNetworks."
+
+- id: aws-opensearch-public
+  name: Amazon OpenSearch domain with public endpoint and open access policy
+  provider: aws
+  family: dbaas
+  weight: critical
+  risk: "Same failure mode as self-hosted Elasticsearch: logs, PII and tokens readable by anyone."
+  discover: ["search-*.<region>.es.amazonaws.com in code, CT and passive DNS"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<endpoint>/", exposed_if: "200 = anonymous access. 403 = policy enforced"}
+  inside_out: "aws opensearch describe-domain --domain-name <d> --query 'DomainStatus.[Endpoint,Endpoints,AccessPolicies]'"
+  attack: {access: [T1190], follow_on: [T1213.006, T1485]}
+  soc_watch: [DET0080, DET0242, DET0146]
+  mitigations: [M1035, M1018, M1041]
+  fix: "VPC domain, fine-grained access control, no Principal '*' without IP or Cognito conditions."
+  guardrail: "AWS Config rules opensearch-in-vpc-only and opensearch-access-control-enabled."
+
+- id: gcp-bigquery-public
+  name: BigQuery dataset shared with allUsers / allAuthenticatedUsers
+  provider: gcp
+  family: dbaas
+  weight: critical
+  risk: "Analytics warehouses hold the most aggregated data in the company."
+  discover: ["Dataset IDs in notebooks, docs and public repos"]
+  proof: {rung: E2, cmd: "Owner confirmation preferred. Do not query tables", exposed_if: "Dataset metadata visible from a stranger account"}
+  inside_out: "bq show --format=prettyjson <project>:<dataset> (look for specialGroup allAuthenticatedUsers / iamMember allUsers)"
+  attack: {access: [T1530], follow_on: [T1567.002]}
+  soc_watch: [DET0484, DET0570]
+  mitigations: [M1018, M1022]
+  fix: "Remove the public principals. Use authorized views for intentional sharing."
+  guardrail: "constraints/iam.allowedPolicyMemberDomains."
+
+- id: baas-firebase-open
+  name: Firebase Realtime Database / Firestore / Storage with open rules
+  provider: gcp
+  family: dbaas
+  weight: critical
+  risk: "Rules like '.read: true' or 'allow read, write: if true' are behind many of the largest mobile-app leaks."
+  discover: ["firebaseConfig in web JS and mobile apps (databaseURL, projectId, storageBucket). The apiKey is publishable, not a secret"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' '<databaseURL from firebaseConfig>/.json?shallow=true'; curl -s -o /dev/null -w '%{http_code}' 'https://firebasestorage.googleapis.com/v0/b/<bucket>/o?maxResults=1'", exposed_if: "databaseURL is https://<project>-default-rtdb.firebaseio.com (us-central1), https://<db>.<region>.firebasedatabase.app (other regions) or legacy https://<project>.firebaseio.com. 200 = world-readable (shallow returns top-level keys only). 401/403 = rules enforced. Firestore: owner E4 only"}
+  inside_out: "Review database.rules.json / firestore.rules / storage.rules in source control and the console Rules Playground"
+  attack: {access: [T1530], follow_on: [T1565.001, T1485]}
+  soc_watch: [DET0484, DET0193, DET0146]
+  mitigations: [M1022, M1018]
+  fix: "Use auth-scoped rules (request.auth.uid). Use App Check. Add CI tests for rules."
+  guardrail: "Rules linting in CI. Block deploys whose rules contain 'if true' or '.read: true' at the root."
+
+- id: baas-supabase-rls-off
+  name: Supabase / PostgREST tables without Row-Level Security
+  provider: multi
+  family: dbaas
+  weight: critical
+  risk: "The anon key is public by design. If RLS is off, every row is readable or writable through the REST API."
+  discover: ["<ref>.supabase.co plus the anon/publishable key in front-end bundles"]
+  proof: {rung: E3, cmd: "curl -s -I '<url>/rest/v1/<table>?select=*' -H 'apikey: <anon-key>' -H 'Prefer: count=exact' -H 'Range: 0-0'", exposed_if: "Content-Range shows a row count > 0 for a sensitive table = readable by anon (metadata only; never page through rows). A service_role key in the front end = force P1"}
+  inside_out: "select schemaname, tablename, rowsecurity from pg_tables where schemaname='public';"
+  attack: {access: [T1190], follow_on: [T1213.006, T1565.001]}
+  soc_watch: [DET0080, DET0242, DET0193]
+  mitigations: [M1018, M1022, M1054]
+  fix: "Enable RLS on every exposed table with explicit policies. Remove service_role keys from clients."
+  guardrail: "Supabase security advisor or linter in CI. Fail the build when a table in an exposed schema has RLS disabled."
+
+- id: queue-topic-public
+  name: Message queues / topics with public resource policies (SQS, SNS, EventBridge, Pub/Sub, Service Bus SAS)
+  provider: multi
+  family: dbaas
+  weight: high
+  risk: "Principal '*' on SendMessage or Publish lets outsiders inject events into back-end pipelines. Receive leaks data."
+  discover: ["Queue URLs and topic ARNs in code, IaC and public repos"]
+  proof: {rung: E2, cmd: "Owner confirmation. Do not send or receive messages", exposed_if: "Policy allows '*' without aws:SourceAccount / aws:SourceArn conditions"}
+  inside_out: "aws sqs get-queue-attributes --queue-url <u> --attribute-names Policy; aws sns get-topic-attributes --topic-arn <arn>; gcloud pubsub topics get-iam-policy <t>"
+  attack: {access: [T1530], follow_on: [T1565.001]}
+  soc_watch: [DET0484, DET0193]
+  mitigations: [M1018, M1022]
+  fix: "Scope the policies to specific principals and source ARNs."
+  guardrail: "IAM Access Analyzer external-access findings, routed to owners automatically."
+
+# ───────────────────────────── serverless, APIs & web front doors ─────────────────────────────
+- id: aws-lambda-url-none
+  name: Lambda Function URL with AuthType NONE
+  provider: aws
+  family: serverless
+  weight: high
+  risk: "Unauthenticated invoke of internal functions. Denial-of-wallet. SSRF from the function role into IMDS-like credentials."
+  discover: ["*.lambda-url.<region>.on.aws in JS, mobile apps and passive DNS"]
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<id>.lambda-url.<region>.on.aws/", exposed_if: "Anything other than 403 Forbidden (the AWS_IAM signature) = AuthType NONE. Do not fuzz"}
+  inside_out: "for f in $(aws lambda list-functions --query 'Functions[].FunctionName' --output text); do aws lambda list-function-url-configs --function-name $f --query \"FunctionUrlConfigs[?AuthType=='NONE'].FunctionUrl\" --output text; done"
+  attack: {access: [T1190], follow_on: [T1648, T1499.003, T1078.004]}
+  soc_watch: [DET0080, DET0374, DET0415, DET0546]
+  mitigations: [M1035, M1018, M1036]
+  fix: "Use AuthType AWS_IAM, or front with API Gateway or CloudFront plus an authorizer. Set reserved concurrency."
+  guardrail: "SCP denying lambda:CreateFunctionUrlConfig / UpdateFunctionUrlConfig when lambda:FunctionUrlAuthType = NONE (except tagged public functions)."
+
+- id: api-gateway-no-auth
+  name: API Gateway / APIM routes with no authorizer (AWS API Gateway, Azure APIM, GCP API Gateway/Apigee)
+  provider: multi
+  family: serverless
+  weight: high
+  risk: "Internal APIs published without auth. Data leaks and abuse of back-end functions."
+  discover: ["*.execute-api.<region>.amazonaws.com, *.azure-api.net, *.gateway.dev in JS, Postman and OpenAPI docs"]
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<api-host>/<stage>/<documented-path>", exposed_if: "2xx on a non-public route without credentials. Use documented GET routes only"}
+  inside_out: "aws apigatewayv2 get-routes --api-id <id> --query \"Items[?AuthorizationType=='NONE'].RouteKey\"; aws apigateway get-resources --rest-api-id <id> --embed methods"
+  attack: {access: [T1190], follow_on: [T1213, T1499.003]}
+  soc_watch: [DET0080, DET0413, DET0415]
+  mitigations: [M1035, M1018]
+  fix: "Attach an authorizer (JWT, IAM or Lambda). Use usage plans and WAF."
+  guardrail: "IaC policy-as-code check (OPA/Checkov) blocking routes without an authorizer unless tagged public."
+
+- id: azure-functions-anonymous
+  name: Azure Functions / App Service with anonymous auth level
+  provider: azure
+  family: serverless
+  weight: high
+  risk: "authLevel anonymous exposes internal triggers to the internet."
+  discover: ["<app>.azurewebsites.net/api/* references"]
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<app>.azurewebsites.net/api/<function>", exposed_if: "Not 401 = no function key required"}
+  inside_out: "az functionapp function list -g <rg> -n <app> --query \"[].{name:name,bindings:config.bindings}\" (look for authLevel anonymous); az webapp auth show -g <rg> -n <app>"
+  attack: {access: [T1190], follow_on: [T1648]}
+  soc_watch: [DET0080, DET0374]
+  mitigations: [M1035, M1018]
+  fix: "Use authLevel function or admin plus Easy Auth (Entra). Use access restrictions or private endpoints."
+  guardrail: "Azure Policy: Function apps should have authentication enabled / public network access disabled."
+
+- id: azure-appservice-scm
+  name: App Service SCM (Kudu) site and basic-auth publishing (FTP / WebDeploy) enabled
+  provider: azure
+  family: serverless
+  weight: high
+  risk: "Publishing credentials allow code deployment (web shell) and environment variable / secret read via Kudu."
+  discover: ["<app>.scm.azurewebsites.net resolves", "publishProfile XML files in repos"]
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' https://<app>.scm.azurewebsites.net/", exposed_if: "Reachable from the internet (expect a 401 or a login redirect)"}
+  inside_out: "az resource show -g <rg> --namespace Microsoft.Web --resource-type basicPublishingCredentialsPolicies --parent sites/<app> -n scm --query properties.allow (repeat with -n ftp)"
+  attack: {access: [T1078.004], follow_on: [T1505.003, T1552.001]}
+  soc_watch: [DET0546, DET0394, DET0307]
+  mitigations: [M1042, M1035, M1018]
+  fix: "Disable basic-auth publishing. Restrict SCM access. Deploy via OIDC from CI."
+  guardrail: "Azure Policy built-ins 'App Service apps should have local authentication methods disabled for SCM site deployments' and '... for FTP deployments' (with the matching 'Configure App Service apps to disable local authentication ...' remediation policies; function-app equivalents exist)."
+
+- id: gcp-serverless-allusers
+  name: Cloud Run / Cloud Functions invokable by allUsers with ingress 'all'
+  provider: gcp
+  family: serverless
+  weight: medium
+  risk: "Often intended for public apps. Risky when internal services or admin endpoints are published this way."
+  discover: ["*.run.app / *.cloudfunctions.net references"]
+  proof: {rung: E2, cmd: "curl -s -D - -o /dev/null https://<svc>.run.app/", exposed_if: "403 = IAM invoker required. Google-branded 404 = ingress restricted or default URL disabled (not exposed). Any response from the app itself (2xx, or the app's own 401/404 body) = unauthenticated invoke allowed"}
+  inside_out: "gcloud run services get-iam-policy <svc> --region europe-west2; gcloud run services describe <svc> --region europe-west2 --format=\"value(metadata.annotations.'run.googleapis.com/ingress')\""
+  attack: {access: [T1190], follow_on: [T1648]}
+  soc_watch: [DET0080, DET0374]
+  mitigations: [M1035, M1018]
+  fix: "Remove allUsers run.invoker for internal services. Ingress internal / internal-and-cloud-load-balancing. IAP."
+  guardrail: "constraints/iam.allowedPolicyMemberDomains, constraints/run.allowedIngress."
+
+- id: origin-bypass
+  name: Origin servers reachable directly, bypassing CDN / WAF
+  provider: multi
+  family: serverless
+  weight: medium
+  risk: "WAF, bot and DDoS protections are skipped when the origin answers any source."
+  discover: ["Historical DNS and CT for pre-CDN IPs", "Scan-DB search for our certificate (ssl.cert.subject.cn) on non-CDN IPs"]
+  proof: {rung: E2, cmd: "curl -sk -o /dev/null -w '%{http_code}' --resolve <host>:443:<origin-ip> https://<host>/", exposed_if: "Origin serves the site directly"}
+  inside_out: "Security group / NSG / firewall: confirm the origin only allows CDN ranges (e.g. the CloudFront managed prefix list) or uses origin auth headers or mTLS"
+  attack: {access: [T1190], follow_on: [T1499.003]}
+  soc_watch: [DET0080, DET0415]
+  mitigations: [M1035, M1037]
+  fix: "Restrict origin ingress to CDN ranges. Use authenticated origin pulls or private origins."
+  guardrail: "IaC rule requiring origin SGs to reference the CDN prefix lists."
+
+# ───────────────────────────── container platforms & registries ─────────────────────────────
+- id: managed-k8s-public-api
+  name: Managed Kubernetes API endpoint public to 0.0.0.0/0 (EKS, AKS, GKE)
+  provider: multi
+  family: container-platform
+  weight: high
+  risk: "Control plane open to the internet. One leaked kubeconfig or token, or an RBAC slip (system:anonymous), means cluster takeover."
+  discover: ["*.eks.amazonaws.com, *.azmk8s.io endpoints in CT, passive DNS and kubeconfigs in leaks", "GKE endpoints in GCP ranges answering 443 with a Kubernetes cert"]
+  proof: {rung: E2, cmd: "curl -sk https://<endpoint>/version", exposed_if: "Kubernetes version JSON returned from an arbitrary internet IP (see services.yaml k8s-api for the anonymous-read test)"}
+  inside_out: "aws eks describe-cluster --name <c> --query 'cluster.resourcesVpcConfig.[endpointPublicAccess,publicAccessCidrs]'; az aks show -g <rg> -n <c> --query apiServerAccessProfile; gcloud container clusters describe <c> --region europe-west2 --format='yaml(privateClusterConfig,masterAuthorizedNetworksConfig)'"
+  attack: {access: [T1078.004, T1190], follow_on: [T1609, T1610, T1613, T1552.007]}
+  soc_watch: [DET0546, DET0080, DET0065, DET0249, DET0490, DET0198]
+  mitigations: [M1035, M1026, M1018]
+  fix: "Private endpoint, or restrict publicAccessCidrs / authorized IP ranges / master authorized networks to admin egress IPs."
+  guardrail: "Azure Policy (authorized IP ranges / private cluster). GKE: custom org-policy constraint on container.googleapis.com/Cluster requiring a private endpoint or master authorized networks. AWS Config eks-endpoint-no-public-access."
+
+- id: registry-anonymous
+  name: Cloud container registries / public images leaking secrets (ECR public policies, ACR anonymous pull, Artifact Registry allUsers, Docker Hub / GHCR org images)
+  provider: multi
+  family: container-platform
+  weight: high
+  risk: "Image layers keep deleted files: .env, keys, kubeconfigs, internal hostnames. Public org images on Docker Hub are a top source of live cloud keys."
+  discover: ["Org namespaces on Docker Hub, GHCR, Quay and ECR Public", "Registry hostnames in CI configs"]
+  proof: {rung: E3, cmd: "List public repositories and tags (metadata). Secret-scan layers only for images confirmed as ours (A1) and with RoE approval", exposed_if: "Public image belongs to the org. Any secret found = see leaked-cloud-credentials"}
+  inside_out: "aws ecr get-repository-policy --repository-name <r>; aws ecr-public describe-repositories --region us-east-1; az acr show -n <reg> --query \"{anon:anonymousPullEnabled,public:publicNetworkAccess,admin:adminUserEnabled}\"; gcloud artifacts repositories get-iam-policy <repo> --location europe-west2"
+  attack: {access: [T1552.001], follow_on: [T1552.004, T1078.004, T1525]}
+  soc_watch: [DET0307, DET0549, DET0546, DET0334]
+  mitigations: [M1018, M1047, M1045]
+  fix: "Make the images private, rebuild without secrets (multi-stage builds, build secrets), rotate the leaked credentials."
+  guardrail: "Secret scanning in CI before push. Registry policies denying public repos. Image signing and admission control."
+
+# ───────────────────────────── network-layer cloud exposure ─────────────────────────────
+- id: cloud-fw-open-admin
+  name: Security group / NSG / VPC firewall open to 0.0.0.0/0 or ::/0 on admin or data ports
+  provider: multi
+  family: network
+  weight: high
+  risk: "The cloud-side root cause of most exposed-services findings. Also how attackers create persistence (T1686.001 Cloud Firewall)."
+  discover: ["Outside-in: services.yaml findings on IPs in cloud ranges"]
+  proof: {rung: E1, cmd: "See the matching services.yaml entry for the port", exposed_if: "Port reachable on a cloud IP"}
+  inside_out: "aws ec2 describe-security-groups --filters Name=ip-permission.cidr,Values=0.0.0.0/0 --query 'SecurityGroups[].[GroupId,GroupName,IpPermissions[].[FromPort,ToPort]]'; aws ec2 describe-security-groups --filters Name=ip-permission.ipv6-cidr,Values=::/0 --query 'SecurityGroups[].[GroupId,GroupName]'; az network nsg list --query \"[].securityRules[?access=='Allow' && direction=='Inbound' && (sourceAddressPrefix=='*' || sourceAddressPrefix=='Internet' || sourceAddressPrefix=='0.0.0.0/0' || contains(sourceAddressPrefixes, '*') || contains(sourceAddressPrefixes, 'Internet') || contains(sourceAddressPrefixes, '0.0.0.0/0'))].{id:id,port:destinationPortRange,ports:destinationPortRanges}\"; gcloud compute firewall-rules list --filter='direction=INGRESS AND disabled=false AND (sourceRanges:0.0.0.0/0 OR sourceRanges:\"::/0\")' --format='table(name,network,sourceRanges.list(),allowed)'"
+  attack: {access: [T1133, T1190], follow_on: [T1686.001, T1021.008]}
+  soc_watch: [DET0354, DET0080, DET0424, DET0211]
+  mitigations: [M1035, M1037, M1047]
+  fix: "Remove the world-open rules. Use SSM Session Manager, Azure Bastion or IAP TCP forwarding for admin access."
+  guardrail: "AWS Firewall Manager / Config restricted-common-ports, Azure Policy on NSG rules, GCP org policy plus hierarchical firewall policies. Alert on DET0424 (cloud firewall modification)."
+
+- id: unexpected-public-ip
+  name: Workloads with public IPs or internet-facing load balancers that should be internal
+  provider: multi
+  family: network
+  weight: medium
+  risk: "Reconciliation gap: assets reachable from outside that nobody intended to publish (internal tools on internet-facing ALBs, dev VMs with public IPs)."
+  discover: ["Diff: outside-in reachable IPs/hosts vs inside-out inventory of intended-public resources (tag: exposure=public)"]
+  proof: {rung: E1, cmd: "httpx / nmap against the reachable host", exposed_if: "Reachable and not tagged or approved as public"}
+  inside_out: "aws ec2 describe-instances --query 'Reservations[].Instances[?PublicIpAddress].[InstanceId,PublicIpAddress,Tags]'; aws elbv2 describe-load-balancers --query \"LoadBalancers[?Scheme=='internet-facing'].[LoadBalancerName,DNSName]\"; az network public-ip list --query '[].{ip:ipAddress,attached:ipConfiguration.id}'; gcloud compute instances list --filter='networkInterfaces[].accessConfigs[].natIP:*'"
+  attack: {access: [T1133, T1190], follow_on: [T1021.008]}
+  soc_watch: [DET0354, DET0080, DET0211]
+  mitigations: [M1035, M1030]
+  fix: "Remove the public IP or make the LB internal. Require an approved 'exposure=public' tag with an owner."
+  guardrail: "GCP constraints/compute.vmExternalIpAccess, SCP/declarative policy restricting public IP assignment, Azure Policy 'Network interfaces should not have public IPs'."
+
+- id: aws-imdsv1
+  name: EC2 instances allowing IMDSv1 behind an internet-facing app
+  provider: aws
+  family: network
+  weight: high
+  risk: "SSRF in the exposed app leaks instance role credentials from 169.254.169.254 (the classic large-bank breach pattern)."
+  discover: ["Internet-facing apps on EC2 (outside-in) joined with inside-out MetadataOptions"]
+  proof: {rung: E4, cmd: "Do not attempt SSRF. Owner confirms HttpTokens", exposed_if: "HttpTokens=optional on an instance serving internet traffic"}
+  inside_out: "aws ec2 describe-instances --query \"Reservations[].Instances[?MetadataOptions.HttpTokens=='optional'].[InstanceId,PublicIpAddress]\""
+  attack: {access: [T1190], follow_on: [T1552.005, T1078.004]}
+  soc_watch: [DET0080, DET0001, DET0546]
+  mitigations: [M1042, M1035, M1037]
+  fix: "Require IMDSv2 (HttpTokens=required, hop limit 1 for non-container hosts)."
+  guardrail: "aws ec2 modify-instance-metadata-defaults --http-tokens required (per region), SCP requiring ec2:MetadataHttpTokens=required."
+
+# ───────────────────────────── DNS → deprovisioned cloud resources ─────────────────────────────
+- id: dangling-dns-cloud
+  name: Dangling CNAME to deprovisioned cloud resource (subdomain takeover)
+  provider: multi
+  family: dns
+  weight: high
+  risk: "An attacker claims the freed resource name and serves content on your subdomain: phishing, cookie theft (parent-domain cookies), OAuth redirect abuse."
+  discover: ["Enumerate our DNS zones (inside-out export preferred), resolve every CNAME. Targets: *.s3*.amazonaws.com, *.cloudfront.net, *.elasticbeanstalk.com, *.azurewebsites.net, *.cloudapp.net, *.trafficmanager.net, *.blob.core.windows.net, *.azureedge.net, *.herokuapp.com, *.github.io, *.fastly.net, *.netlify.app, *.vercel.app"]
+  proof: {rung: E2, cmd: "dig +short CNAME <sub>; dig +short <target>; curl -s https://<sub>/ | head -c 300", exposed_if: "Target NXDOMAIN or a provider 'unclaimed' fingerprint (S3 NoSuchBucket, Azure NXDOMAIN, Heroku 'No such app', GitHub Pages 404 site-not-found). NEVER claim the resource to prove it"}
+  inside_out: "aws route53 list-resource-record-sets --hosted-zone-id <z>; az network dns record-set cname list -g <rg> -z <zone>; gcloud dns record-sets list --zone <zone>"
+  attack: {access: [T1584.001], follow_on: [T1189, T1539, T1608.004]}
+  soc_watch: [DET0863, DET0176, DET0509, DET0825]
+  mitigations: [M1056]
+  fix: "Delete the record, or re-claim the resource. Make DNS cleanup part of decommissioning (IaC that owns both)."
+  guardrail: "DNS records created and destroyed in the same IaC stack as the resource. Azure: use alias records. Continuous takeover monitoring."
+
+- id: dangling-a-record-cloud-ip
+  name: A/AAAA record pointing at a released cloud IP
+  provider: multi
+  family: dns
+  weight: high
+  risk: "Released elastic or public IPs get reassigned to other tenants, who then receive traffic, and sometimes valid TLS, for your hostname."
+  discover: ["A records whose IPs are in AWS / Azure / GCP / OCI published ranges"]
+  proof: {rung: E2, cmd: "curl -sk -o /dev/null -w '%{http_code} %{ssl_verify_result}' --resolve <host>:443:<ip> https://<host>/", exposed_if: "IP no longer in our inventory (inside_out) and serving unrelated content"}
+  inside_out: "aws ec2 describe-addresses --public-ips <ip>; az network public-ip list --query \"[?ipAddress=='<ip>']\"; gcloud compute addresses list --filter='address=<ip>'"
+  attack: {access: [T1583.003], follow_on: [T1189, T1539]}
+  soc_watch: [DET0838, DET0176, DET0509]
+  mitigations: [M1056]
+  fix: "Remove or repoint the record. Avoid raw-IP records for cloud resources (use alias / CNAME to provider names)."
+  guardrail: "Inventory join: every DNS A record in cloud ranges must match an owned IP resource (daily diff)."
+
+# ───────────────────────────── non-human identities & secrets ─────────────────────────────
+- id: leaked-cloud-credentials
+  name: Leaked cloud credentials (AWS access keys, Azure client secrets / storage keys, GCP service-account JSON)
+  provider: multi
+  family: identity
+  weight: critical
+  risk: "Fastest-growing cloud entry route. Valid keys lead to discovery, persistence (new keys, roles, users), data theft, LLMjacking and S3 ransomware."
+  discover: ["Public code (GitHub/GitLab code search, gists), package registries, public container images, mobile apps, Postman public workspaces, paste sites, public CI logs, Stack Overflow", "Provider partner alerts (GitHub secret scanning partner program → AWS / Azure / GCP)"]
+  proof: {rung: E2, cmd: "Attribute WITHOUT using the key: aws sts get-access-key-info --access-key-id <AKIA...> (run with YOUR audit credentials; returns the owning account ID). Never call any API with the leaked secret", exposed_if: "Account / tenant / project belongs to the org (A1). Treat as valid until the owner proves otherwise"}
+  inside_out: "aws iam get-access-key-last-used --access-key-id <AKIA...>; aws cloudtrail lookup-events --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=<AKIA...>; az ad app credential list --id <appId>; gcloud iam service-accounts keys list --iam-account <sa> --managed-by=user"
+  attack: {access: [T1552.001, T1078.004], follow_on: [T1580, T1526, T1098.001, T1136.003, T1530, T1496.004, T1486]}
+  soc_watch: [DET0307, DET0546, DET0169, DET0402, DET0531, DET0319, DET0484, DET0147, DET0215]
+  mitigations: [M1047, M1018, M1026, M1027]
+  fix: "Deactivate, then rotate, then review the key's CloudTrail / activity logs since the leak, then remove the secret from history. Check for attacker persistence (new keys, users, roles, Lambda functions, regions in use: T1535)."
+  guardrail: "No long-lived keys: SSO plus workload identity federation (OIDC). GCP constraints/iam.disableServiceAccountKeyCreation. Push protection for secret scanning. AWS auto-attaches the AWSCompromisedKeyQuarantine* policy on partner alerts, but do not rely on it."
+
+- id: llm-api-keys
+  name: Leaked AI / LLM API keys and cloud AI endpoints (Bedrock, Azure OpenAI, Vertex AI, OpenAI, Anthropic, Hugging Face tokens)
+  provider: multi
+  family: identity
+  weight: high
+  risk: "LLMjacking: attackers resell access to your model quota (large bills), read fine-tune data, poison or exfiltrate via AI services."
+  discover: ["Same channels as leaked-cloud-credentials. Front-end bundles calling model APIs directly"]
+  proof: {rung: E2, cmd: "Identify the provider by key format. Do not call the API with it", exposed_if: "Key attributable to the org (from repo or app ownership)"}
+  inside_out: "Provider usage dashboards and audit logs: Bedrock model-invocation logging, Azure OpenAI diagnostic logs, Vertex AI audit logs"
+  attack: {access: [T1552.001, T1078.004], follow_on: [T1496.004, T1700]}
+  soc_watch: [DET0307, DET0546, DET0147, DET0927]
+  mitigations: [M1047, M1018]
+  fix: "Revoke and rotate. Route model calls through a back-end AI gateway. Set quotas and budget alerts."
+  guardrail: "No client-side model keys. Organisation-level spend limits and model-access allow-lists (e.g. Bedrock model access per account)."
+
+- id: public-iac-state
+  name: Public IaC state and templates (terraform.tfstate, CloudFormation / Bicep / ARM templates, Pulumi state)
+  provider: multi
+  family: identity
+  weight: critical
+  risk: "State files contain plaintext secrets, resource IDs and the full architecture."
+  discover: ["filename:terraform.tfstate / *.tfstate in public repos", "*.tfstate keys in public bucket listings (aws-s3-public-read)"]
+  proof: {rung: E3, cmd: "Confirm existence and ownership from the file path and metadata. Do not open beyond what attribution needs", exposed_if: "State or template for org resources publicly reachable"}
+  inside_out: "Locate the backend config (backend \"s3\" / \"azurerm\" / \"gcs\") and run the matching storage inside_out check"
+  attack: {access: [T1552.001], follow_on: [T1580, T1078.004]}
+  soc_watch: [DET0307, DET0169, DET0546]
+  mitigations: [M1022, M1041, M1047]
+  fix: "Make the backend private and encrypted. Rotate every secret in the state. Purge the files from repo history."
+  guardrail: "Remote state backends with BPA / private access only. Pre-commit hooks blocking *.tfstate."
+
+- id: ci-public-artifacts
+  name: Public CI/CD logs, artifacts and workflow files leaking secrets or cloud trust (GitHub Actions, GitLab CI, Azure Pipelines)
+  provider: multi
+  family: identity
+  weight: high
+  risk: "Secrets echoed in public logs and artifacts. Public workflows reveal OIDC role ARNs and trust patterns."
+  discover: ["Public repos of the org: Actions runs and artifacts, .github/workflows, .gitlab-ci.yml"]
+  proof: {rung: E2, cmd: "Read public workflow files and log metadata only. Never trigger workflows", exposed_if: "Secret material in public logs or artifacts, or role ARNs revealing cloud trust"}
+  inside_out: "Repository and organisation settings: Actions log retention and visibility. Secret scanning alerts"
+  attack: {access: [T1552.001, T1593.003], follow_on: [T1195.002, T1078.004]}
+  soc_watch: [DET0307, DET0805, DET0309, DET0546]
+  mitigations: [M1047, M1018, M1026]
+  fix: "Rotate leaked secrets. Mask outputs. Make sensitive repos private. Shorten artifact retention."
+  guardrail: "Org-wide secret scanning plus push protection. Required workflow review for public repos."
+
+- id: oidc-trust-too-broad
+  name: CI OIDC federation trust too broad (e.g. AWS role trusting token.actions.githubusercontent.com without a repo / branch 'sub' condition)
+  provider: multi
+  family: identity
+  weight: critical
+  risk: "Any GitHub repository (an attacker's) can assume your cloud role when the trust policy does not pin the subject."
+  discover: ["Role ARNs in public workflow files (ci-public-artifacts)"]
+  proof: {rung: E4, cmd: "Owner checks the trust policy. NEVER attempt to assume the role from an outside repo", exposed_if: "Trust lacks a token.actions.githubusercontent.com:sub condition, or uses a wildcard like repo:*"}
+  inside_out: "aws iam get-role --role-name <r> --query 'Role.AssumeRolePolicyDocument'; az ad app federated-credential list --id <appId>; gcloud iam workload-identity-pools providers describe <p> --location global --workload-identity-pool <pool> --format='value(attributeCondition)'"
+  attack: {access: [T1550.001, T1078.004], follow_on: [T1098.003, T1530]}
+  soc_watch: [DET0185, DET0546, DET0277, DET0484]
+  mitigations: [M1018, M1026]
+  fix: "Pin token.actions.githubusercontent.com:sub to repo:<org>/<repo>:ref:refs/heads/main (or repo:<org>/<repo>:environment:<env>). Add an aud condition (sts.amazonaws.com). Least-privilege the role, with no IAM-create permissions."
+  guardrail: "Policy-as-code check on trust policies. IAM Access Analyzer. GCP attributeCondition required on WIF providers."
+
+- id: cross-account-trust-no-externalid
+  name: Third-party cross-account roles without ExternalId / tenant-wide consent for multi-tenant apps
+  provider: multi
+  family: identity
+  weight: high
+  risk: "Confused-deputy access by a vendor's other customers. Over-privileged vendor roles are a supply-chain exposure."
+  discover: ["Vendor onboarding docs and CloudFormation quick-create links that reveal role patterns"]
+  proof: {rung: E4, cmd: "Owner reviews the trust policies", exposed_if: "External principal trusted without sts:ExternalId, or with broad permissions"}
+  inside_out: "aws accessanalyzer list-findings --analyzer-arn <arn> --filter '{\"resourceType\":{\"eq\":[\"AWS::IAM::Role\"]}}'; Entra: review enterprise apps with admin consent to application permissions"
+  attack: {access: [T1199, T1078.004], follow_on: [T1530, T1580]}
+  soc_watch: [DET0488, DET0546, DET0484, DET0169]
+  mitigations: [M1018, M1030, M1032]
+  fix: "Add ExternalId conditions and scope the vendor roles. Remove unused vendor access."
+  guardrail: "Vendor access register with an owner and review date. Access Analyzer unused-access findings."
+
+- id: cognito-unauth-identities
+  name: Cognito identity pools allowing unauthenticated identities with over-privileged roles
+  provider: aws
+  family: identity
+  weight: high
+  risk: "The identity pool ID is publishable, but if the unauthenticated role is broad, anyone gets AWS credentials into your account."
+  discover: ["IdentityPoolId (region:GUID) in web or mobile app bundles"]
+  proof: {rung: E4, cmd: "Owner reviews the unauthenticated role permissions. Do not mint credentials", exposed_if: "AllowUnauthenticatedIdentities=true and the unauth role has more than the minimal intended permissions"}
+  inside_out: "aws cognito-identity describe-identity-pool --identity-pool-id <id> --query AllowUnauthenticatedIdentities; aws cognito-identity get-identity-pool-roles --identity-pool-id <id>"
+  attack: {access: [T1078.004], follow_on: [T1580, T1530]}
+  soc_watch: [DET0546, DET0169, DET0484]
+  mitigations: [M1018, M1026]
+  fix: "Disable unauthenticated identities, or scope the role to the exact resources the guest flow needs."
+  guardrail: "IaC check on identity pools. Access Analyzer policy validation."
+
+# ───────────────────────────── SaaS & collaboration exposure ─────────────────────────────
+- id: saas-public-links
+  name: Publicly shared SaaS content (SharePoint/OneDrive 'Anyone' links, Google Drive 'anyone with the link', Box/Dropbox open links, Notion/Confluence public pages, Trello/Jira public boards, Postman public workspaces)
+  provider: saas
+  family: saas
+  weight: high
+  risk: "Search-engine-indexed internal documents, credentials in Postman collections, roadmaps and customer data."
+  discover: ["Search engine dorks for the org on docs.google.com, *.sharepoint.com/:x:/, notion.site, trello.com, postman.com", "Postman public API network search for the org's domains"]
+  proof: {rung: E3, cmd: "Open as an anonymous visitor and record the title and URL only. Do not download files", exposed_if: "Content attributable to the org is reachable without login"}
+  inside_out: "M365: SharePoint admin sharing reports and Get-SPOSite sharing capability; Google Workspace: Drive audit log / sharing settings; Postman: team workspace visibility audit"
+  attack: {access: [T1593.002], follow_on: [T1213, T1213.002, T1552.001]}
+  soc_watch: [DET0811, DET0413, DET0500, DET0307]
+  mitigations: [M1018, M1022, M1047]
+  fix: "Revoke the links, rotate any exposed credentials, and default link sharing to organisation-only with expiry."
+  guardrail: "Tenant-level external sharing limits, sensitivity labels with DLP, link expiry by default."
+
+# ───────────────────────────── cloud AI / ML exposure ─────────────────────────────
+- id: cloud-ml-notebooks
+  name: Managed notebooks / ML workbenches with direct internet access or public endpoints (SageMaker, Vertex AI Workbench, Azure ML compute, Databricks)
+  provider: multi
+  family: ai
+  weight: high
+  risk: "Notebook = shell with a powerful role. Presigned notebook URLs leaked in chat or tickets give direct access."
+  discover: ["*.notebook.<region>.sagemaker.aws, *.notebooks.googleusercontent.com, *.azureml.ms, *.cloud.databricks.com links in tickets and repos"]
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' <notebook-url>", exposed_if: "Notebook UI reachable without SSO redirect (presigned URLs: check expiry offline)"}
+  inside_out: "aws sagemaker list-notebook-instances; aws sagemaker describe-notebook-instance --notebook-instance-name <n> --query '[DirectInternetAccess,RootAccess]'; az ml compute list -g <rg> -w <ws>; gcloud workbench instances list --location europe-west2-a"
+  attack: {access: [T1078.004, T1190], follow_on: [T1059.006, T1552.005, T1496.001]}
+  soc_watch: [DET0546, DET0080, DET0063, DET0001, DET0540]
+  mitigations: [M1035, M1026, M1042]
+  fix: "Disable direct internet access, use VPC-only mode, least-privilege execution roles, short presigned URL TTLs."
+  guardrail: "SCP condition sagemaker:DirectInternetAccess = Disabled. Azure Policy for ML workspaces without public network access."
+
+- id: cloud-ai-agents-exposed
+  name: Cloud-hosted agent / RAG endpoints and MCP servers deployed on serverless or containers without auth
+  provider: multi
+  family: ai
+  weight: critical
+  risk: "Agents wired to internal data and tools, reachable anonymously: data exfiltration via prompts, indirect prompt injection, tool abuse."
+  discover: ["*.run.app / *.azurewebsites.net / *.lambda-url / *.on.aws hosts exposing /mcp, /sse, /v1/chat/completions or agent UIs"]
+  proof: {rung: E3, cmd: "See services.yaml mcp-server / llm-inference proofs", exposed_if: "Unauthenticated initialize or chat endpoint on an org-owned host"}
+  inside_out: "Serverless inside_out checks (aws-lambda-url-none / gcp-serverless-allusers / azure-functions-anonymous) plus agent tool-permission review"
+  attack: {access: [T1190], follow_on: [T1698, T1699, T1700]}
+  soc_watch: [DET0080, DET0942, DET0941, DET0927]
+  mitigations: [M1035, M1018, M1026, M1038]
+  fix: "Require auth (OAuth 2.1 for MCP), least-privilege tool scopes, egress allow-lists for agents."
+  guardrail: "AI asset register. Deny public ingress for workloads tagged ai-agent unless approved."

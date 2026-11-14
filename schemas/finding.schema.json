@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/d6falcon/outside-in/main/schemas/finding.schema.json",
+  "title": "outside-in exposure finding",
+  "description": "One external exposure of one asset (or a root-cause roll-up of several). See docs/methodology.md.",
+  "type": "object",
+  "required": ["finding_id", "catalog_id", "asset", "evidence", "status", "first_seen_utc", "last_seen_utc"],
+  "additionalProperties": false,
+  "properties": {
+    "finding_id": { "type": "string", "pattern": "^OI-[0-9]{4}-[0-9]{4,}$" },
+    "catalog_id": { "type": "string", "description": "id from catalog/services.yaml or catalog/cloud-assets.yaml, or 'uncatalogued'" },
+    "rollup_of": { "type": "array", "items": { "type": "string" }, "description": "child finding_ids when this is a root-cause roll-up" },
+    "root_cause": { "type": "string", "description": "e.g. 'sg-0abc allows 0.0.0.0/0:3389', 'terraform module net/edge v1.4'" },
+
+    "asset": {
+      "type": "object",
+      "required": ["attribution"],
+      "additionalProperties": false,
+      "properties": {
+        "ip": { "type": "string" },
+        "hostname": { "type": "string" },
+        "provider": { "type": "string", "enum": ["on-prem", "aws", "azure", "gcp", "oci", "multi", "saas", "other"] },
+        "account": { "type": "string", "description": "AWS account / Azure subscription / GCP project / tenant" },
+        "region": { "type": "string" },
+        "resource": { "type": "string", "description": "cloud resource ID / ARN / URL" },
+        "attribution": { "type": "string", "enum": ["A1", "A2", "A3"] },
+        "attribution_basis": { "type": "string" },
+        "in_inventory": { "type": "boolean" },
+        "owner": { "type": "string" },
+        "environment": { "type": "string", "enum": ["prod", "non-prod", "unknown"] }
+      }
+    },
+
+    "exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": { "type": "string", "pattern": "^[0-9]{1,5}/(tcp|udp)$" },
+        "product": { "type": "string" },
+        "version": { "type": "string" },
+        "reach": { "type": "string", "enum": ["internet-any", "internet-broad-allowlist", "internet-narrow-allowlist", "behind-sso-or-vpn", "not-reachable"] },
+        "window_start_utc": { "type": "string", "format": "date-time", "description": "earliest known exposure (creation, first scan-seen, policy change)" }
+      }
+    },
+
+    "evidence": {
+      "type": "object",
+      "required": ["rung"],
+      "additionalProperties": false,
+      "properties": {
+        "rung": { "type": "string", "enum": ["E0", "E1", "E2", "E3", "E4"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rung", "collected_utc", "method"],
+            "additionalProperties": false,
+            "properties": {
+              "rung": { "type": "string", "enum": ["E0", "E1", "E2", "E3", "E4"] },
+              "collected_utc": { "type": "string", "format": "date-time" },
+              "source": { "type": "string", "description": "shodan | censys | shadowserver | nmap | curl | stranger-account | owner-cli | cspm | ..." },
+              "vantage": { "type": "string", "description": "scanner IP / stranger account / owner" },
+              "method": { "type": "string", "description": "exact command or query" },
+              "observed": { "type": "string", "description": "trimmed status/banner/metadata - never data contents or secrets" },
+              "artifact_ref": { "type": "string", "description": "pointer to raw evidence in the evidence store" }
+            }
+          }
+        }
+      }
+    },
+
+    "intel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cves": { "type": "array", "items": { "type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$" } },
+        "kev": { "type": "boolean" },
+        "kev_date_added": { "type": "string", "format": "date" },
+        "kev_ransomware_use": { "type": "string", "enum": ["Known", "Unknown"] },
+        "epss_max": { "type": "number", "minimum": 0, "maximum": 1 },
+        "attacker_evidence": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "attack": {
+      "type": "object",
+      "description": "MITRE ATT&CK Enterprise technique IDs",
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "default": "20.1" },
+        "recon": { "$ref": "#/$defs/techniques" },
+        "access": { "$ref": "#/$defs/techniques" },
+        "follow_on": { "$ref": "#/$defs/techniques" }
+      }
+    },
+    "soc_watch": { "type": "array", "items": { "type": "string", "pattern": "^DET[0-9]{4}$" } },
+    "detection_gaps": { "type": "array", "items": { "type": "string", "pattern": "^DET[0-9]{4}$" }, "description": "soc_watch DETs the SOC confirmed it cannot see" },
+    "mitigations": { "type": "array", "items": { "type": "string", "pattern": "^M1[0-9]{3}$" } },
+
+    "eps": {
+      "type": "object",
+      "required": ["reach", "class", "pressure", "blast"],
+      "additionalProperties": false,
+      "properties": {
+        "reach": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "class": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "pressure": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "blast": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "total": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "overrides": { "type": "array", "items": { "type": "string", "enum": ["force-p1-unauth-data", "force-p1-leaked-secret", "force-p1-attacker-evidence", "cap-p3-unattributed", "lift-unmanaged", "lift-regressed"] } },
+        "band": { "type": "string", "enum": ["P1", "P2", "P3", "P4"] },
+        "defaults_used": { "type": "array", "items": { "type": "string" }, "description": "factors scored on defaults pending owner input" }
+      }
+    },
+
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "containment": { "type": "string" },
+        "fix": { "type": "string" },
+        "guardrail": { "type": "string" },
+        "guardrail_in_place": { "type": "boolean" },
+        "inside_out_check": { "type": "string" },
+        "campaign_id": { "type": "string", "description": "remediation campaign this roll-up is mobilised under (methodology section 6)" },
+        "ticket": { "type": "string", "description": "ITSM ticket reference" },
+        "due_utc": { "type": "string", "format": "date-time", "description": "SLA due date from the EPS band" },
+        "exception": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ref", "compensating_control", "expires_utc", "approver"],
+          "properties": {
+            "ref": { "type": "string", "description": "ITSM exception reference" },
+            "compensating_control": { "type": "string", "description": "must reduce Reach, e.g. allow-list, IAP, WAF virtual patch" },
+            "expires_utc": { "type": "string", "format": "date-time" },
+            "approver": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "status": { "type": "string", "enum": ["open", "contained", "closed-verified", "closed-outside-only", "reopened-relocated", "open-fix-not-effective", "risk-accepted", "not-ours"] },
+    "diff": { "type": "string", "enum": ["new", "persisting", "regressed", "closed"] },
+    "first_seen_utc": { "type": "string", "format": "date-time" },
+    "last_seen_utc": { "type": "string", "format": "date-time" }
+  },
+
+  "$defs": {
+    "techniques": { "type": "array", "items": { "type": "string", "pattern": "^T1[0-9]{3}(\\.[0-9]{3})?$" } }
+  }
+}

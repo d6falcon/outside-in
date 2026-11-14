@@ -1,0 +1,17 @@
+# never commit engagement data or evidence
+engagements/
+evidence/
+*.gnmap
+*.nmap
+*.xml
+!schemas/*.xml
+*.jsonl
+*.csv
+.env
+*.tfstate
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

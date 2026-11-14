@@ -1,0 +1,708 @@
+# ATT&CK Enterprise 20.1 - generated 2026-11-14 by scripts/Update-AttackMapping.ps1 - (c) The MITRE Corporation, ATT&CK Terms of Use apply
+technique_id	name	tactics	platforms	detection_strategies	mitigations
+T1001	Data Obfuscation	command-and-control	ESXi,Linux,macOS,Windows	DET0053	M1031
+T1001.001	Junk Data	command-and-control	ESXi,Linux,macOS,Windows	DET0011	M1031
+T1001.002	Steganography	command-and-control	Linux,macOS,Windows,ESXi	DET0235	M1031
+T1001.003	Protocol or Service Impersonation	command-and-control	ESXi,Linux,macOS,Windows	DET0470	M1031
+T1003	OS Credential Dumping	credential-access	Linux,macOS,Windows	DET0234	M1015,M1017,M1025,M1026,M1027,M1028,M1040,M1041,M1043
+T1003.001	LSASS Memory	credential-access	Windows	DET0363	M1017,M1025,M1026,M1027,M1028,M1040,M1043
+T1003.002	Security Account Manager	credential-access	Windows	DET0085	M1017,M1026,M1027,M1028
+T1003.003	NTDS	credential-access	Windows	DET0586	M1017,M1026,M1027,M1041
+T1003.004	LSA Secrets	credential-access	Windows	DET0437	M1017,M1026,M1027
+T1003.005	Cached Domain Credentials	credential-access	Windows,Linux	DET0513	M1015,M1017,M1026,M1027,M1028
+T1003.006	DCSync	credential-access	Windows	DET0594	M1015,M1026,M1027
+T1003.007	Proc Filesystem	credential-access	Linux	DET0593	M1026,M1027
+T1003.008	/etc/passwd and /etc/shadow	credential-access	Linux	DET0446	M1026,M1027
+T1005	Data from Local System	collection	ESXi,Linux,macOS,Network Devices,Windows	DET0380	M1057
+T1006	Direct Volume Access	stealth	Network Devices,Windows	DET0426	M1018,M1040
+T1007	System Service Discovery	discovery	Linux,macOS,Windows	DET0483	
+T1008	Fallback Channels	command-and-control	ESXi,Linux,macOS,Windows	DET0499	M1031
+T1010	Application Window Discovery	discovery	Linux,macOS,Windows	DET0097	
+T1011	Exfiltration Over Other Network Medium	exfiltration	Linux,macOS,Windows	DET0077	M1028,M1042
+T1011.001	Exfiltration Over Bluetooth	exfiltration	Linux,macOS,Windows	DET0554	M1028,M1042
+T1012	Query Registry	discovery	Windows	DET0209	
+T1014	Rootkit	stealth	Linux,macOS,Windows	DET0377	
+T1016	System Network Configuration Discovery	discovery	ESXi,Linux,macOS,Network Devices,Windows	DET0195	
+T1016.001	Internet Connection Discovery	discovery	Windows,Linux,macOS,ESXi	DET0357	
+T1016.002	Wi-Fi Discovery	discovery	Linux,Windows,macOS	DET0464	
+T1018	Remote System Discovery	discovery	ESXi,Linux,macOS,Network Devices,Windows	DET0574	
+T1020	Automated Exfiltration	exfiltration	Linux,macOS,Network Devices,Windows	DET0397	
+T1020.001	Traffic Duplication	exfiltration	Network Devices,IaaS	DET0403	M1018,M1041,M1057
+T1021	Remote Services	lateral-movement	Linux,macOS,Windows,IaaS,ESXi	DET0269	M1018,M1027,M1032,M1035,M1042,M1047
+T1021.001	Remote Desktop Protocol	lateral-movement	Windows	DET0327	M1018,M1026,M1028,M1030,M1032,M1035,M1042,M1047
+T1021.002	SMB/Windows Admin Shares	lateral-movement	Windows	DET0530	M1026,M1027,M1035,M1037
+T1021.003	Distributed Component Object Model	lateral-movement	Windows	DET0285	M1026,M1030,M1042,M1048
+T1021.004	SSH	lateral-movement	ESXi,Linux,macOS,Windows	DET0596	M1018,M1032,M1042
+T1021.005	VNC	lateral-movement	Linux,Windows,macOS	DET0178	M1033,M1037,M1042,M1047
+T1021.006	Windows Remote Management	lateral-movement	Windows	DET0477	M1026,M1030,M1042
+T1021.007	Cloud Services	lateral-movement	IaaS,Identity Provider,Office Suite,SaaS	DET0008	M1026,M1032
+T1021.008	Direct Cloud VM Connections	lateral-movement	IaaS	DET0211	M1018,M1042
+T1025	Data from Removable Media	collection	Linux,macOS,Windows	DET0511	M1057
+T1027	Obfuscated Files or Information	stealth	ESXi,Linux,macOS,Network Devices,Windows	DET0378	M1017,M1040,M1047,M1049
+T1027.001	Binary Padding	stealth	Linux,macOS,Windows	DET0553	
+T1027.002	Software Packing	stealth	Linux,macOS,Windows	DET0023	M1049
+T1027.003	Steganography	stealth	Linux,macOS,Windows	DET0119	
+T1027.004	Compile After Delivery	stealth	Linux,macOS,Windows	DET0501	
+T1027.005	Indicator Removal from Tools	stealth	Linux,macOS,Windows	DET0189	
+T1027.006	HTML Smuggling	stealth	Linux,macOS,Windows	DET0313	M1048
+T1027.007	Dynamic API Resolution	stealth	Windows	DET0091	
+T1027.008	Stripped Payloads	stealth	Linux,macOS,Network Devices,Windows	DET0019	
+T1027.009	Embedded Payloads	stealth	Linux,macOS,Windows	DET0214	M1040,M1049
+T1027.010	Command Obfuscation	stealth	Linux,macOS,Windows	DET0505	M1040,M1049
+T1027.011	Fileless Storage	stealth	Linux,Windows	DET0344	M1047
+T1027.012	LNK Icon Smuggling	stealth	Windows	DET0405	M1040,M1049
+T1027.013	Encrypted/Encoded File	stealth	Linux,macOS,Windows	DET0087	M1040,M1049
+T1027.014	Polymorphic Code	stealth	Linux,macOS,Windows	DET0324	M1040,M1049
+T1027.015	Compression	stealth	Linux,macOS,Windows	DET0281	M1049
+T1027.016	Junk Code Insertion	stealth	Linux,macOS,Windows	DET0322	M1049
+T1027.017	SVG Smuggling	stealth	Linux,macOS,Windows	DET0510	M1048
+T1027.018	Invisible Unicode	stealth	Linux,macOS,Windows	DET0920	
+T1029	Scheduled Transfer	exfiltration	Linux,macOS,Windows	DET0399	M1031
+T1030	Data Transfer Size Limits	exfiltration	Linux,macOS,Windows,ESXi	DET0213	M1031
+T1033	System Owner/User Discovery	discovery	Linux,macOS,Network Devices,Windows	DET0093	
+T1036	Masquerading	stealth	Containers,ESXi,Linux,macOS,Windows	DET0127	M1017,M1018,M1022,M1038,M1040,M1045,M1047,M1049
+T1036.001	Invalid Code Signature	stealth	macOS,Windows	DET0031	M1045
+T1036.002	Right-to-Left Override	stealth	Linux,macOS,Windows	DET0527	
+T1036.003	Rename Legitimate Utilities	stealth	Linux,macOS,Windows	DET0005	M1022
+T1036.004	Masquerade Task or Service	stealth	Linux,macOS,Windows	DET0117	
+T1036.005	Match Legitimate Resource Name or Location	stealth	Containers,ESXi,Linux,macOS,Windows	DET0347	M1022,M1038,M1045
+T1036.006	Space after Filename	stealth	Linux,macOS	DET0292	
+T1036.007	Double File Extension	stealth	Windows	DET0366	M1017,M1028
+T1036.008	Masquerade File Type	stealth	Linux,macOS,Windows	DET0226	M1038,M1040,M1049
+T1036.009	Break Process Trees	stealth	Linux,macOS	DET0443	
+T1036.010	Masquerade Account Name	stealth	Containers,IaaS,Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0383	M1018,M1047
+T1036.011	Overwrite Process Arguments	stealth	Linux	DET0164	
+T1036.012	Browser Fingerprint	stealth	Linux,macOS,Windows	DET0898	M1047
+T1037	Boot or Logon Initialization Scripts	persistence,privilege-escalation	ESXi,Linux,macOS,Network Devices,Windows	DET0112	M1022,M1024
+T1037.001	Logon Script (Windows)	persistence,privilege-escalation	Windows	DET0072	M1024
+T1037.002	Login Hook	persistence,privilege-escalation	macOS	DET0244	M1022
+T1037.003	Network Logon Script	persistence,privilege-escalation	Windows	DET0367	M1022
+T1037.004	RC Scripts	persistence,privilege-escalation	macOS,Linux,Network Devices,ESXi	DET0237	M1022
+T1037.005	Startup Items	persistence,privilege-escalation	macOS	DET0429	M1022
+T1039	Data from Network Shared Drive	collection	Linux,macOS,Windows	DET0410	
+T1040	Network Sniffing	credential-access,discovery	IaaS,Linux,macOS,Network Devices,Windows	DET0314	M1018,M1030,M1032,M1041
+T1041	Exfiltration Over C2 Channel	exfiltration	ESXi,Linux,macOS,Windows	DET0348	M1031,M1057
+T1046	Network Service Discovery	discovery	Containers,IaaS,Linux,macOS,Network Devices,Windows	DET0376	M1030,M1031,M1042
+T1047	Windows Management Instrumentation	execution	Windows	DET0364	M1018,M1026,M1038,M1040
+T1048	Exfiltration Over Alternative Protocol	exfiltration	ESXi,IaaS,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0131	M1018,M1022,M1030,M1031,M1037,M1057
+T1048.001	Exfiltration Over Symmetric Encrypted Non-C2 Protocol	exfiltration	Linux,macOS,Windows,ESXi	DET0503	M1030,M1031,M1037
+T1048.002	Exfiltration Over Asymmetric Encrypted Non-C2 Protocol	exfiltration	ESXi,Linux,macOS,Windows	DET0512	M1030,M1031,M1037,M1057
+T1048.003	Exfiltration Over Unencrypted Non-C2 Protocol	exfiltration	ESXi,Linux,macOS,Network Devices,Windows	DET0149	M1030,M1031,M1037,M1057
+T1049	System Network Connections Discovery	discovery	ESXi,IaaS,Linux,macOS,Network Devices,Windows	DET0320	
+T1052	Exfiltration Over Physical Medium	exfiltration	Linux,macOS,Windows	DET0123	M1034,M1042,M1057
+T1052.001	Exfiltration over USB	exfiltration	Linux,Windows,macOS	DET0220	M1034,M1042,M1057
+T1053	Scheduled Task/Job	execution,persistence,privilege-escalation	Containers,ESXi,Linux,macOS,Network Devices,Windows	DET0094	M1018,M1022,M1026,M1028,M1047
+T1053.002	At	execution,persistence,privilege-escalation	Windows,Linux,macOS	DET0333	M1018,M1026,M1028,M1047
+T1053.003	Cron	execution,persistence,privilege-escalation	Linux,macOS,ESXi	DET0290	M1018,M1047
+T1053.005	Scheduled Task	execution,persistence,privilege-escalation	Windows	DET0441	M1018,M1026,M1028,M1047
+T1053.006	Systemd Timers	execution,persistence,privilege-escalation	Linux	DET0231	M1018,M1022,M1026
+T1053.007	Container Orchestration Job	execution,persistence,privilege-escalation	Containers	DET0206	M1018,M1026
+T1055	Process Injection	stealth,privilege-escalation	Linux,macOS,Windows	DET0508	M1026,M1040
+T1055.001	Dynamic-link Library Injection	stealth,privilege-escalation	Windows	DET0389	M1040
+T1055.002	Portable Executable Injection	stealth,privilege-escalation	Windows	DET0106	M1040
+T1055.003	Thread Execution Hijacking	stealth,privilege-escalation	Windows	DET0295	M1040
+T1055.004	Asynchronous Procedure Call	stealth,privilege-escalation	Windows	DET0100	M1040
+T1055.005	Thread Local Storage	stealth,privilege-escalation	Windows	DET0467	M1040
+T1055.008	Ptrace System Calls	stealth,privilege-escalation	Linux	DET0203	M1026,M1040
+T1055.009	Proc Memory	stealth,privilege-escalation	Linux	DET0541	M1022,M1040
+T1055.011	Extra Window Memory Injection	stealth,privilege-escalation	Windows	DET0217	M1040
+T1055.012	Process Hollowing	stealth,privilege-escalation	Windows	DET0382	M1040
+T1055.013	Process Doppelgänging	stealth,privilege-escalation	Windows	DET0544	M1040
+T1055.014	VDSO Hijacking	stealth,privilege-escalation	Linux	DET0448	M1040
+T1055.015	ListPlanting	stealth,privilege-escalation	Windows	DET0331	M1040
+T1056	Input Capture	collection,credential-access	Linux,macOS,Network Devices,Windows	DET0102	
+T1056.001	Keylogging	collection,credential-access	Linux,macOS,Network Devices,Windows	DET0089	
+T1056.002	GUI Input Capture	collection,credential-access	Linux,macOS,Windows	DET0521	M1017
+T1056.003	Web Portal Capture	collection,credential-access	Linux,macOS,Windows	DET0480	M1026
+T1056.004	Credential API Hooking	collection,credential-access	Windows,Linux,macOS	DET0139	
+T1057	Process Discovery	discovery	ESXi,Linux,macOS,Network Devices,Windows	DET0034	
+T1059	Command and Scripting Interpreter	execution	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0516	M1021,M1026,M1033,M1038,M1040,M1042,M1045,M1047,M1049
+T1059.001	PowerShell	execution	Windows,Linux,macOS	DET0455	M1026,M1038,M1042,M1045,M1049
+T1059.002	AppleScript	execution	macOS	DET0414	M1038,M1045
+T1059.003	Windows Command Shell	execution	Windows	DET0202	M1038
+T1059.004	Unix Shell	execution	ESXi,Linux,macOS,Network Devices	DET0384	M1038
+T1059.005	Visual Basic	execution	Linux,macOS,Windows	DET0076	M1021,M1038,M1040,M1042,M1049
+T1059.006	Python	execution	ESXi,Linux,macOS,Windows	DET0063	M1033,M1038,M1047,M1049
+T1059.007	JavaScript	execution	Linux,macOS,Windows	DET0264	M1021,M1038,M1040,M1042
+T1059.008	Network Device CLI	execution	Network Devices	DET0142	M1018,M1026,M1038
+T1059.009	Cloud API	execution	IaaS,Identity Provider,Office Suite,SaaS	DET0078	M1026,M1038
+T1059.010	AutoHotKey & AutoIT	execution	Windows	DET0332	M1038
+T1059.011	Lua	execution	Linux,Network Devices,Windows,macOS	DET0101	M1033,M1038,M1047
+T1059.012	Hypervisor CLI	execution	ESXi	DET0558	
+T1059.013	Container CLI/API	execution	Containers	DET0083	M1026,M1038
+T1068	Exploitation for Privilege Escalation	privilege-escalation	Containers,Linux,macOS,Windows	DET0514	M1019,M1038,M1048,M1050,M1051
+T1069	Permission Groups Discovery	discovery	Containers,IaaS,Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0179	
+T1069.001	Local Groups	discovery	Linux,macOS,Windows	DET0114	
+T1069.002	Domain Groups	discovery	Linux,macOS,Windows	DET0360	
+T1069.003	Cloud Groups	discovery	SaaS,IaaS,Office Suite,Identity Provider	DET0251	
+T1070	Indicator Removal	stealth	Containers,ESXi,Linux,macOS,Network Devices,Office Suite,Windows	DET0184	M1022,M1029,M1041
+T1070.003	Clear Command History	stealth	ESXi,Linux,macOS,Network Devices,Windows	DET0165	M1022,M1029,M1039
+T1070.004	File Deletion	stealth	ESXi,Linux,macOS,Windows	DET0140	
+T1070.005	Network Share Connection Removal	stealth	Windows	DET0103	
+T1070.006	Timestomp	stealth	ESXi,Linux,macOS,Windows	DET0591	
+T1070.007	Clear Network Connection History and Configurations	stealth	Linux,macOS,Windows,Network Devices	DET0049	M1024,M1029
+T1070.008	Clear Mailbox Data	stealth	Linux,macOS,Office Suite,Windows	DET0266	M1022,M1029,M1047
+T1070.009	Clear Persistence	stealth	ESXi,Linux,macOS,Windows	DET0040	M1022,M1029
+T1070.010	Relocate Malware	stealth	Linux,macOS,Network Devices,Windows	DET0439	
+T1071	Application Layer Protocol	command-and-control	Linux,macOS,Windows,Network Devices,ESXi	DET0444	M1031,M1037
+T1071.001	Web Protocols	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0027	M1031,M1037
+T1071.002	File Transfer Protocols	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0416	M1031,M1037
+T1071.003	Mail Protocols	command-and-control	Linux,macOS,Network Devices,Windows	DET0135	M1031,M1037
+T1071.004	DNS	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0400	M1031,M1037
+T1071.005	Publish/Subscribe Protocols	command-and-control	macOS,Linux,Windows,Network Devices	DET0002	M1031,M1037
+T1072	Software Deployment Tools	execution,lateral-movement	Linux,macOS,Network Devices,SaaS,Windows	DET0223	M1015,M1017,M1018,M1026,M1027,M1029,M1030,M1032,M1033,M1051
+T1074	Data Staged	collection	ESXi,IaaS,Linux,macOS,Windows	DET0014	
+T1074.001	Local Data Staging	collection	ESXi,Linux,macOS,Windows	DET0261	
+T1074.002	Remote Data Staging	collection	ESXi,IaaS,Linux,macOS,Windows	DET0071	
+T1078	Valid Accounts	stealth,persistence,privilege-escalation,initial-access	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0560	M1013,M1015,M1017,M1018,M1026,M1027,M1032,M1036
+T1078.001	Default Accounts	stealth,persistence,privilege-escalation,initial-access	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0465	M1027,M1032
+T1078.002	Domain Accounts	stealth,persistence,privilege-escalation,initial-access	ESXi,Linux,macOS,Windows	DET0210	M1017,M1018,M1026,M1027,M1032
+T1078.003	Local Accounts	stealth,persistence,privilege-escalation,initial-access	Containers,ESXi,Linux,macOS,Network Devices,Windows	DET0407	M1018,M1026,M1027,M1032
+T1078.004	Cloud Accounts	stealth,persistence,privilege-escalation,initial-access	IaaS,Identity Provider,Office Suite,SaaS	DET0546	M1015,M1017,M1018,M1026,M1027,M1032,M1036
+T1080	Taint Shared Content	lateral-movement	Windows,SaaS,Linux,macOS,Office Suite	DET0471	M1022,M1038,M1049,M1050
+T1082	System Information Discovery	discovery	ESXi,IaaS,Linux,macOS,Network Devices,Windows	DET0525	
+T1083	File and Directory Discovery	discovery	ESXi,Linux,macOS,Network Devices,Windows	DET0370	
+T1087	Account Discovery	discovery	ESXi,IaaS,Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0587	M1018,M1028
+T1087.001	Local Account	discovery	ESXi,Linux,macOS,Windows	DET0303	M1028
+T1087.002	Domain Account	discovery	Linux,macOS,Windows	DET0129	M1028
+T1087.003	Email Account	discovery	Windows,Office Suite	DET0229	
+T1087.004	Cloud Account	discovery	IaaS,Identity Provider,Office Suite,SaaS	DET0386	M1018,M1047
+T1090	Proxy	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0445	M1020,M1031,M1037
+T1090.001	Internal Proxy	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0075	M1031
+T1090.002	External Proxy	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0325	M1031
+T1090.003	Multi-hop Proxy	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0359	M1037
+T1090.004	Domain Fronting	command-and-control	Linux,macOS,Windows,ESXi	DET0196	M1020
+T1091	Replication Through Removable Media	lateral-movement,initial-access	Windows	DET0301	M1034,M1040,M1042
+T1092	Communication Through Removable Media	command-and-control	Linux,macOS,Windows	DET0090	M1028,M1042
+T1095	Non-Application Layer Protocol	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0457	M1030,M1031,M1037,M1047
+T1098	Account Manipulation	persistence,privilege-escalation	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0096	M1018,M1022,M1026,M1028,M1030,M1032,M1042
+T1098.001	Additional Cloud Credentials	persistence,privilege-escalation	IaaS,Identity Provider,SaaS	DET0531	M1018,M1026,M1030,M1032,M1042
+T1098.002	Additional Email Delegate Permissions	persistence,privilege-escalation	Windows,Office Suite	DET0373	M1026,M1032,M1042
+T1098.003	Additional Cloud Roles	persistence,privilege-escalation	IaaS,Identity Provider,Office Suite,SaaS	DET0277	M1018,M1026,M1032
+T1098.004	SSH Authorized Keys	persistence,privilege-escalation	ESXi,IaaS,Linux,macOS,Network Devices	DET0126	M1018,M1022,M1042
+T1098.005	Device Registration	persistence,privilege-escalation	Windows,Identity Provider	DET0036	M1032
+T1098.006	Additional Container Cluster Roles	persistence,privilege-escalation	Containers	DET0572	M1018,M1032
+T1098.007	Additional Local or Domain Groups	persistence,privilege-escalation	Windows,macOS,Linux	DET0310	
+T1102	Web Service	command-and-control	ESXi,Linux,macOS,Windows	DET0425	M1021,M1031
+T1102.001	Dead Drop Resolver	command-and-control	ESXi,Linux,macOS,Windows	DET0058	M1021,M1031
+T1102.002	Bidirectional Communication	command-and-control	ESXi,Linux,macOS,Windows	DET0035	M1021,M1031
+T1102.003	One-Way Communication	command-and-control	Linux,macOS,Windows,ESXi	DET0581	M1021,M1031
+T1104	Multi-Stage Channels	command-and-control	Linux,macOS,Windows,ESXi	DET0228	M1031
+T1105	Ingress Tool Transfer	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0060	M1031,M1037
+T1106	Native API	execution	Linux,macOS,Windows	DET0529	M1038,M1040
+T1110	Brute Force	credential-access	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0463	M1018,M1027,M1032,M1036
+T1110.001	Password Guessing	credential-access	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0551	M1027,M1032,M1036,M1051
+T1110.002	Password Cracking	credential-access	Identity Provider,Linux,macOS,Network Devices,Office Suite,Windows	DET0105	M1027,M1032
+T1110.003	Password Spraying	credential-access	Containers,ESXi,IaaS,Identity Provider,Linux,Network Devices,Office Suite,SaaS,Windows,macOS	DET0487	M1027,M1032,M1036
+T1110.004	Credential Stuffing	credential-access	Containers,ESXi,IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0460	M1018,M1027,M1032,M1036
+T1111	Multi-Factor Authentication Interception	credential-access	Linux,macOS,Windows	DET0246	M1017
+T1112	Modify Registry	defense-impairment,persistence	Windows	DET0280	M1024
+T1113	Screen Capture	collection	Linux,macOS,Windows	DET0346	
+T1114	Email Collection	collection	Windows,macOS,Linux,Office Suite	DET0476	M1032,M1041,M1047,M1060
+T1114.001	Local Email Collection	collection	Windows	DET0047	M1041,M1060
+T1114.002	Remote Email Collection	collection	Office Suite,Windows	DET0048	M1032,M1041,M1060
+T1114.003	Email Forwarding Rule	collection	Linux,macOS,Office Suite,Windows	DET0576	M1041,M1042,M1047,M1060
+T1115	Clipboard Data	collection	Linux,macOS,Windows	DET0341	
+T1119	Automated Collection	collection	IaaS,Linux,macOS,Office Suite,SaaS,Windows	DET0186	M1029,M1041
+T1120	Peripheral Device Discovery	discovery	Linux,macOS,Windows	DET0491	
+T1123	Audio Capture	collection	Linux,macOS,Windows	DET0221	
+T1124	System Time Discovery	discovery	ESXi,Linux,macOS,Network Devices,Windows	DET0151	
+T1125	Video Capture	collection	Linux,macOS,Windows	DET0197	
+T1127	Trusted Developer Utilities Proxy Execution	stealth,execution	Windows	DET0172	M1021,M1038,M1042
+T1127.001	MSBuild	stealth,execution	Windows	DET0556	M1038,M1042
+T1127.002	ClickOnce	stealth,execution	Windows	DET0191	M1021,M1042,M1045
+T1127.003	JamPlus	stealth,execution	Windows	DET0585	M1038,M1042
+T1129	Shared Modules	execution	Linux,macOS,Windows	DET0018	M1038
+T1132	Data Encoding	command-and-control	ESXi,Linux,macOS,Windows	DET0108	M1031
+T1132.001	Standard Encoding	command-and-control	ESXi,Linux,macOS,Windows	DET0124	M1031
+T1132.002	Non-Standard Encoding	command-and-control	ESXi,Linux,macOS,Windows	DET0326	M1031
+T1133	External Remote Services	persistence,initial-access	Containers,Linux,macOS,Windows	DET0354	M1021,M1030,M1032,M1035,M1042
+T1134	Access Token Manipulation	stealth,privilege-escalation	Windows	DET0283	M1018,M1026
+T1134.001	Token Impersonation/Theft	stealth,privilege-escalation	Windows	DET0482	M1018,M1026
+T1134.002	Create Process with Token	stealth,privilege-escalation	Windows	DET0456	M1018,M1026
+T1134.003	Make and Impersonate Token	stealth,privilege-escalation	Windows	DET0498	M1018,M1026
+T1134.004	Parent PID Spoofing	stealth,privilege-escalation	Windows	DET0489	
+T1134.005	SID-History Injection	stealth,privilege-escalation	Windows	DET0136	M1015
+T1135	Network Share Discovery	discovery	Linux,macOS,Windows	DET0182	M1028
+T1136	Create Account	persistence	Windows,IaaS,Linux,macOS,Network Devices,Containers,SaaS,Office Suite,Identity Provider,ESXi	DET0583	M1026,M1028,M1030,M1032
+T1136.001	Local Account	persistence	Containers,ESXi,Linux,macOS,Network Devices,Windows	DET0447	M1026,M1032
+T1136.002	Domain Account	persistence	Linux,macOS,Windows	DET0003	M1026,M1028,M1030,M1032
+T1136.003	Cloud Account	persistence	IaaS,SaaS,Office Suite,Identity Provider	DET0319	M1026,M1030,M1032
+T1137	Office Application Startup	persistence	Windows,Office Suite	DET0398	M1040,M1042,M1051,M1054
+T1137.001	Office Template Macros	persistence	Office Suite,Windows	DET0519	M1040,M1042
+T1137.002	Office Test	persistence	Windows,Office Suite	DET0315	M1040,M1054
+T1137.003	Outlook Forms	persistence	Windows,Office Suite	DET0029	M1040,M1051
+T1137.004	Outlook Home Page	persistence	Windows,Office Suite	DET0177	M1040,M1051
+T1137.005	Outlook Rules	persistence	Windows,Office Suite	DET0095	M1040,M1051
+T1137.006	Add-ins	persistence	Windows,Office Suite	DET0050	M1040
+T1140	Deobfuscate/Decode Files or Information	stealth	ESXi,Linux,macOS,Windows	DET0275	
+T1176	Software Extensions	persistence	Linux,macOS,Windows	DET0092	M1017,M1033,M1038,M1047,M1051
+T1176.001	Browser Extensions	persistence	Linux,Windows,macOS	DET0044	M1017,M1033,M1038,M1047,M1051
+T1176.002	IDE Extensions	persistence	Linux,macOS,Windows	DET0561	M1017,M1033,M1038,M1047,M1051
+T1185	Browser Session Hijacking	collection	Windows	DET0507	M1017,M1018
+T1187	Forced Authentication	credential-access	Windows	DET0022	M1027,M1037
+T1189	Drive-by Compromise	initial-access	Identity Provider,Linux,macOS,Windows	DET0176	M1017,M1021,M1048,M1050,M1051
+T1190	Exploit Public-Facing Application	initial-access	Containers,ESXi,IaaS,Linux,macOS,Network Devices,Windows	DET0080	M1016,M1026,M1030,M1035,M1037,M1048,M1050,M1051
+T1195	Supply Chain Compromise	initial-access	Linux,Windows,macOS,SaaS	DET0537	M1013,M1016,M1018,M1033,M1046,M1051
+T1195.001	Compromise Software Dependencies and Development Tools	initial-access	Linux,macOS,Windows	DET0009	M1013,M1016,M1033,M1051
+T1195.002	Compromise Software Supply Chain	initial-access	Linux,Windows,macOS	DET0309	M1016,M1051
+T1195.003	Compromise Hardware Supply Chain	initial-access	Linux,macOS,Windows	DET0368	M1046
+T1197	BITS Jobs	stealth,persistence,execution	Windows	DET0098	M1018,M1028,M1037
+T1199	Trusted Relationship	initial-access	IaaS,Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0488	M1018,M1030,M1032
+T1200	Hardware Additions	initial-access	Windows,Linux,macOS	DET0069	M1034,M1035
+T1201	Password Policy Discovery	discovery	Windows,Linux,macOS,IaaS,Network Devices,Identity Provider,SaaS,Office Suite	DET0161	M1027
+T1202	Indirect Command Execution	stealth	Windows	DET0200	
+T1203	Exploitation for Client Execution	execution	Linux,macOS,Windows	DET0287	M1048,M1050,M1051
+T1204	User Execution	execution	Linux,Windows,macOS,IaaS,Containers	DET0478	M1017,M1021,M1031,M1033,M1038,M1040
+T1204.001	Malicious Link	execution	Linux,macOS,Windows	DET0066	M1017,M1021,M1031
+T1204.002	Malicious File	execution	Linux,macOS,Windows	DET0294	M1017,M1038,M1040
+T1204.003	Malicious Image	execution	IaaS,Containers	DET0248	M1017,M1031,M1045,M1047
+T1204.004	Malicious Copy and Paste	execution	Linux,macOS,Windows	DET0340	M1021,M1031,M1038
+T1204.005	Malicious Library	execution	Linux,macOS,Windows	DET0252	M1017,M1031,M1033
+T1205	Traffic Signaling	stealth,persistence,command-and-control	Linux,macOS,Network Devices,Windows	DET0524	M1037,M1042
+T1205.001	Port Knocking	stealth,persistence,command-and-control	Linux,macOS,Network Devices,Windows	DET0302	M1037
+T1205.002	Socket Filters	stealth,persistence,command-and-control	Linux,macOS,Windows	DET0162	M1037
+T1207	Rogue Domain Controller	defense-impairment	Windows	DET0276	
+T1210	Exploitation of Remote Services	lateral-movement	Linux,Windows,macOS,ESXi	DET0118	M1016,M1019,M1026,M1030,M1042,M1048,M1050,M1051
+T1211	Exploitation for Stealth	stealth	Linux,Windows,macOS,SaaS,IaaS	DET0595	M1019,M1048,M1050,M1051
+T1212	Exploitation for Credential Access	credential-access	Linux,Windows,macOS,Identity Provider	DET0174	M1013,M1019,M1048,M1050,M1051
+T1213	Data from Information Repositories	collection	Linux,Windows,macOS,SaaS,IaaS,Office Suite	DET0413	M1017,M1018,M1032,M1041,M1047,M1054,M1060
+T1213.001	Confluence	collection	SaaS	DET0358	M1017,M1018,M1047
+T1213.002	Sharepoint	collection	Office Suite,Windows	DET0500	M1017,M1018,M1047
+T1213.003	Code Repositories	collection	SaaS	DET0263	M1017,M1018,M1032,M1047
+T1213.004	Customer Relationship Management Software	collection	SaaS	DET0550	M1017,M1018,M1047,M1054
+T1213.005	Messaging Applications	collection	Office Suite,SaaS	DET0567	M1017,M1047,M1060
+T1213.006	Databases	collection	IaaS,Linux,macOS,SaaS,Windows	DET0242	M1017,M1018,M1041,M1047,M1054
+T1216	System Script Proxy Execution	stealth	Windows	DET0466	M1038
+T1216.001	PubPrn	stealth	Windows	DET0528	M1038,M1040
+T1216.002	SyncAppvPublishingServer	stealth	Windows	DET0440	M1038
+T1217	Browser Information Discovery	discovery	Linux,macOS,Windows	DET0013	
+T1218	System Binary Proxy Execution	stealth	Linux,macOS,Windows	DET0081	M1021,M1026,M1037,M1038,M1042,M1050
+T1218.001	Compiled HTML File	stealth	Windows	DET0342	M1021,M1038
+T1218.002	Control Panel	stealth	Windows	DET0194	M1022,M1038
+T1218.003	CMSTP	stealth	Windows	DET0328	M1038,M1042
+T1218.004	InstallUtil	stealth	Windows	DET0138	M1038,M1042
+T1218.005	Mshta	stealth	Windows	DET0506	M1038,M1042
+T1218.007	Msiexec	stealth	Windows	DET0158	M1026,M1042
+T1218.008	Odbcconf	stealth	Windows	DET0486	M1038,M1042
+T1218.009	Regsvcs/Regasm	stealth	Windows	DET0361	M1038,M1042
+T1218.010	Regsvr32	stealth	Windows	DET0282	M1050
+T1218.011	Rundll32	stealth	Windows	DET0475	M1050
+T1218.012	Verclsid	stealth	Windows	DET0042	M1037,M1038,M1042
+T1218.013	Mavinject	stealth	Windows	DET0433	M1038,M1042
+T1218.014	MMC	stealth	Windows	DET0222	M1038,M1042
+T1218.015	Electron Applications	stealth	Linux,macOS,Windows	DET0025	M1038,M1042,M1050
+T1219	Remote Access Tools	command-and-control	Linux,macOS,Windows	DET0496	M1031,M1034,M1037,M1038,M1042
+T1219.001	IDE Tunneling	command-and-control	Linux,macOS,Windows	DET0133	M1038
+T1219.002	Remote Desktop Software	command-and-control	Linux,macOS,Windows	DET0259	M1037,M1038,M1042
+T1219.003	Remote Access Hardware	command-and-control	Linux,macOS,Windows	DET0159	M1034
+T1220	XSL Script Processing	stealth	Windows	DET0205	M1038
+T1221	Template Injection	stealth	Windows	DET0566	M1017,M1031,M1042,M1049
+T1222	File and Directory Permissions Modification	defense-impairment	ESXi,Linux,macOS,Windows	DET0299	M1022,M1026
+T1222.001	Windows Permissions	defense-impairment	Windows	DET0418	M1022,M1026
+T1222.002	Linux and Mac Permissions	defense-impairment	Linux,macOS	DET0351	M1022,M1026
+T1480	Execution Guardrails	stealth	ESXi,Linux,macOS,Windows	DET0562	M1055
+T1480.001	Environmental Keying	stealth	Linux,Windows,macOS	DET0474	M1055
+T1480.002	Mutual Exclusion	stealth	Linux,macOS,Windows	DET0132	M1055
+T1482	Domain Trust Discovery	discovery	Windows	DET0007	M1030,M1047
+T1484	Domain or Tenant Policy Modification	defense-impairment,privilege-escalation	Windows,Identity Provider	DET0270	M1018,M1026,M1047
+T1484.001	Group Policy Modification	defense-impairment,privilege-escalation	Windows	DET0305	M1018,M1047
+T1484.002	Trust Modification	defense-impairment,privilege-escalation	Identity Provider,Windows	DET0458	M1018,M1026
+T1485	Data Destruction	impact	Containers,ESXi,IaaS,Linux,macOS,Windows	DET0146	M1018,M1032,M1053
+T1485.001	Lifecycle-Triggered Deletion	impact	IaaS	DET0041	M1018,M1053
+T1486	Data Encrypted for Impact	impact	ESXi,IaaS,Linux,macOS,Windows	DET0215	M1040,M1053
+T1489	Service Stop	impact	ESXi,IaaS,Linux,macOS,Windows	DET0021	M1018,M1022,M1024,M1030,M1060
+T1490	Inhibit System Recovery	impact	Containers,ESXi,IaaS,Linux,macOS,Network Devices,Windows	DET0329	M1018,M1028,M1038,M1053
+T1491	Defacement	impact	Windows,IaaS,Linux,macOS,ESXi	DET0238	M1053
+T1491.001	Internal Defacement	impact	ESXi,Linux,macOS,Windows	DET0082	M1053
+T1491.002	External Defacement	impact	Windows,IaaS,Linux,macOS	DET0590	M1053
+T1495	Firmware Corruption	impact	Linux,macOS,Network Devices,Windows	DET0167	M1026,M1046,M1051
+T1496	Resource Hijacking	impact	Windows,IaaS,Linux,macOS,Containers,SaaS	DET0267	
+T1496.001	Compute Hijacking	impact	Windows,IaaS,Linux,macOS,Containers	DET0540	
+T1496.002	Bandwidth Hijacking	impact	Linux,Windows,macOS,IaaS,Containers	DET0028	
+T1496.003	SMS Pumping	impact	SaaS	DET0156	M1013
+T1496.004	Cloud Service Hijacking	impact	SaaS	DET0147	
+T1497	Virtualization/Sandbox Evasion	stealth,discovery	Linux,macOS,Windows	DET0046	
+T1497.001	System Checks	stealth,discovery	Linux,macOS,Windows	DET0168	
+T1497.002	User Activity Based Checks	stealth,discovery	Linux,macOS,Windows	DET0420	
+T1497.003	Time Based Checks	stealth,discovery	Linux,macOS,Windows	DET0141	
+T1498	Network Denial of Service	impact	Windows,IaaS,Linux,macOS,Containers	DET0518	M1037
+T1498.001	Direct Network Flood	impact	Windows,IaaS,Linux,macOS	DET0343	M1037
+T1498.002	Reflection Amplification	impact	Windows,IaaS,Linux,macOS	DET0408	M1037
+T1499	Endpoint Denial of Service	impact	Windows,Linux,macOS,Containers,IaaS	DET0208	M1037
+T1499.001	OS Exhaustion Flood	impact	Linux,macOS,Windows	DET0356	M1037
+T1499.002	Service Exhaustion Flood	impact	Windows,IaaS,Linux,macOS	DET0173	M1037
+T1499.003	Application Exhaustion Flood	impact	Windows,IaaS,Linux,macOS	DET0415	M1037
+T1499.004	Application or System Exploitation	impact	Windows,IaaS,Linux,macOS	DET0304	M1037
+T1505	Server Software Component	persistence	Windows,Linux,macOS,Network Devices,ESXi	DET0547	M1018,M1024,M1026,M1042,M1045,M1046,M1047
+T1505.001	SQL Stored Procedures	persistence	Windows,Linux	DET0181	M1026,M1045,M1047
+T1505.002	Transport Agent	persistence	Linux,Windows	DET0166	M1026,M1045,M1047
+T1505.003	Web Shell	persistence	Linux,macOS,Network Devices,Windows	DET0394	M1018,M1042
+T1505.004	IIS Components	persistence	Windows	DET0068	M1026,M1038,M1045,M1047
+T1505.005	Terminal Services DLL	persistence	Windows	DET0212	M1024,M1047
+T1505.006	vSphere Installation Bundles	persistence	ESXi	DET0535	M1045,M1046,M1047
+T1518	Software Discovery	discovery	ESXi,IaaS,Linux,macOS,Windows	DET0392	
+T1518.001	Security Software Discovery	discovery	IaaS,Linux,macOS,Windows	DET0016	
+T1518.002	Backup Software Discovery	discovery	Windows,macOS,Linux	DET0088	
+T1525	Implant Internal Image	persistence	IaaS,Containers	DET0334	M1026,M1045,M1047
+T1526	Cloud Service Discovery	discovery	IaaS,Identity Provider,Office Suite,SaaS	DET0402	
+T1528	Steal Application Access Token	credential-access	Containers,IaaS,Identity Provider,Office Suite,SaaS	DET0515	M1017,M1018,M1021,M1047
+T1529	System Shutdown/Reboot	impact	ESXi,Linux,macOS,Network Devices,Windows	DET0559	
+T1530	Data from Cloud Storage	collection	IaaS,Office Suite,SaaS	DET0484	M1018,M1022,M1032,M1037,M1041,M1047
+T1531	Account Access Removal	impact	Linux,macOS,Windows,SaaS,IaaS,Office Suite,ESXi	DET0120	
+T1534	Internal Spearphishing	lateral-movement	Linux,macOS,Office Suite,SaaS,Windows	DET0054	
+T1535	Unused/Unsupported Cloud Regions	stealth	IaaS	DET0247	M1054
+T1537	Transfer Data to Cloud Account	exfiltration	IaaS,Office Suite,SaaS	DET0573	M1018,M1037,M1054,M1057
+T1538	Cloud Service Dashboard	discovery	IaaS,SaaS,Office Suite,Identity Provider	DET0291	M1018
+T1539	Steal Web Session Cookie	credential-access	Linux,macOS,Office Suite,SaaS,Windows	DET0509	M1017,M1021,M1032,M1047,M1051,M1054
+T1542	Pre-OS Boot	stealth,persistence	Linux,macOS,Network Devices,Windows	DET0278	M1026,M1035,M1046,M1047,M1051
+T1542.001	System Firmware	stealth,persistence	Network Devices,Windows	DET0099	M1026,M1046,M1051
+T1542.002	Component Firmware	stealth,persistence	Windows,Linux,macOS	DET0323	M1051
+T1542.003	Bootkit	stealth,persistence	Linux,Windows	DET0150	M1026,M1046
+T1542.004	ROMMONkit	stealth,persistence	Network Devices	DET0175	M1031,M1046,M1047
+T1542.005	TFTP Boot	stealth,persistence	Network Devices	DET0582	M1026,M1028,M1031,M1035,M1046,M1047
+T1543	Create or Modify System Process	persistence,privilege-escalation	Containers,Linux,macOS,Windows	DET0571	M1018,M1022,M1026,M1028,M1033,M1040,M1045,M1047,M1054
+T1543.001	Launch Agent	persistence,privilege-escalation	macOS	DET0434	M1022
+T1543.002	Systemd Service	persistence,privilege-escalation	Linux	DET0253	M1018,M1022,M1026,M1033
+T1543.003	Windows Service	persistence,privilege-escalation	Windows	DET0552	M1018,M1028,M1040,M1045,M1047
+T1543.004	Launch Daemon	persistence,privilege-escalation	macOS	DET0401	M1018,M1047
+T1543.005	Container Service	persistence,privilege-escalation	Containers	DET0473	M1018,M1054
+T1546	Event Triggered Execution	privilege-escalation,persistence	Linux,macOS,Windows,SaaS,IaaS,Office Suite	DET0010	M1026,M1051
+T1546.001	Change Default File Association	privilege-escalation,persistence	Windows	DET0061	
+T1546.002	Screensaver	privilege-escalation,persistence	Windows	DET0154	M1038,M1042
+T1546.003	Windows Management Instrumentation Event Subscription	privilege-escalation,persistence	Windows	DET0086	M1018,M1026,M1040
+T1546.004	Unix Shell Configuration Modification	privilege-escalation,persistence	Linux,macOS	DET0020	M1022
+T1546.005	Trap	privilege-escalation,persistence	macOS,Linux	DET0369	
+T1546.006	LC_LOAD_DYLIB Addition	privilege-escalation,persistence	macOS	DET0216	M1038,M1045,M1047
+T1546.007	Netsh Helper DLL	privilege-escalation,persistence	Windows	DET0575	
+T1546.008	Accessibility Features	privilege-escalation,persistence	Windows	DET0033	M1028,M1035,M1038
+T1546.009	AppCert DLLs	privilege-escalation,persistence	Windows	DET0362	M1038
+T1546.010	AppInit DLLs	privilege-escalation,persistence	Windows	DET0557	M1038,M1051
+T1546.011	Application Shimming	privilege-escalation,persistence	Windows	DET0017	M1051,M1052
+T1546.012	Image File Execution Options Injection	privilege-escalation,persistence	Windows	DET0422	
+T1546.013	PowerShell Profile	privilege-escalation,persistence	Windows	DET0451	M1022,M1045,M1054
+T1546.014	Emond	privilege-escalation,persistence	macOS	DET0555	M1042
+T1546.015	Component Object Model Hijacking	privilege-escalation,persistence	Windows	DET0481	
+T1546.016	Installer Packages	privilege-escalation,persistence	Linux,macOS,Windows	DET0330	
+T1546.017	Udev Rules	persistence,privilege-escalation	Linux	DET0375	
+T1546.018	Python Startup Hooks	persistence,privilege-escalation	Linux,macOS,Windows	DET0258	
+T1547	Boot or Logon Autostart Execution	persistence,privilege-escalation	Linux,macOS,Windows,Network Devices	DET0274	
+T1547.001	Registry Run Keys / Startup Folder	persistence,privilege-escalation	Windows	DET0365	
+T1547.002	Authentication Package	persistence,privilege-escalation	Windows	DET0207	M1025
+T1547.003	Time Providers	persistence,privilege-escalation	Windows	DET0122	M1022,M1024
+T1547.004	Winlogon Helper DLL	persistence,privilege-escalation	Windows	DET0404	M1018,M1038
+T1547.005	Security Support Provider	persistence,privilege-escalation	Windows	DET0542	M1025
+T1547.006	Kernel Modules and Extensions	persistence,privilege-escalation	macOS,Linux	DET0450	M1018,M1026,M1038,M1049
+T1547.007	Re-opened Applications	persistence,privilege-escalation	macOS	DET0125	M1017,M1042
+T1547.008	LSASS Driver	persistence,privilege-escalation	Windows	DET0225	M1025,M1043,M1044
+T1547.009	Shortcut Modification	persistence,privilege-escalation	Windows	DET0180	M1018,M1022,M1038
+T1547.010	Port Monitors	persistence,privilege-escalation	Windows	DET0204	
+T1547.012	Print Processors	persistence,privilege-escalation	Windows	DET0026	M1018
+T1547.013	XDG Autostart Entries	persistence,privilege-escalation	Linux	DET0390	M1018,M1022,M1033
+T1547.014	Active Setup	persistence,privilege-escalation	Windows	DET0312	
+T1547.015	Login Items	persistence,privilege-escalation	macOS	DET0121	
+T1548	Abuse Elevation Control Mechanism	privilege-escalation	Linux,macOS,Windows,IaaS,Office Suite,Identity Provider	DET0345	M1018,M1022,M1026,M1028,M1038,M1047,M1051,M1052
+T1548.001	Setuid and Setgid	privilege-escalation	Linux,macOS	DET0110	M1028
+T1548.002	Bypass User Account Control	privilege-escalation	Windows	DET0388	M1026,M1047,M1051,M1052
+T1548.003	Sudo and Sudo Caching	privilege-escalation	Linux,macOS	DET0052	M1022,M1026,M1028
+T1548.004	Elevated Execution with Prompt	privilege-escalation	macOS	DET0395	M1038
+T1548.005	Temporary Elevated Cloud Access	privilege-escalation	IaaS,Office Suite,Identity Provider	DET0393	M1018
+T1548.006	TCC Manipulation	privilege-escalation	macOS	DET0534	M1022,M1026,M1047
+T1550	Use Alternate Authentication Material	lateral-movement	Containers,IaaS,Identity Provider,Linux,Office Suite,SaaS,Windows	DET0338	M1013,M1015,M1018,M1026,M1027,M1036,M1047
+T1550.001	Application Access Token	lateral-movement	Containers,IaaS,Identity Provider,Office Suite,SaaS	DET0185	M1013,M1021,M1036,M1041,M1047
+T1550.002	Pass the Hash	lateral-movement	Windows	DET0409	M1018,M1026,M1051,M1052
+T1550.003	Pass the Ticket	lateral-movement	Windows	DET0352	M1015,M1018,M1026,M1027
+T1550.004	Web Session Cookie	lateral-movement	IaaS,Office Suite,SaaS	DET0074	M1054
+T1552	Unsecured Credentials	credential-access	Windows,SaaS,IaaS,Linux,macOS,Containers,Network Devices,Office Suite,Identity Provider	DET0412	M1015,M1017,M1022,M1026,M1027,M1028,M1035,M1037,M1041,M1047,M1051
+T1552.001	Credentials In Files	credential-access	Containers,IaaS,Linux,macOS,Windows	DET0307	M1017,M1022,M1027,M1047
+T1552.002	Credentials in Registry	credential-access	Windows	DET0250	M1026,M1027,M1047
+T1552.003	Shell History	credential-access	Linux,macOS,Windows	DET0385	M1028
+T1552.004	Private Keys	credential-access	Linux,macOS,Network Devices,Windows	DET0549	M1022,M1027,M1041,M1047
+T1552.005	Cloud Instance Metadata API	credential-access	IaaS	DET0001	M1035,M1037,M1042
+T1552.006	Group Policy Preferences	credential-access	Windows	DET0381	M1015,M1047,M1051
+T1552.007	Container API	credential-access	Containers	DET0198	M1018,M1026,M1030,M1035
+T1552.008	Chat Messages	credential-access	SaaS,Office Suite	DET0111	M1017,M1047
+T1553	Subvert Trust Controls	defense-impairment	Linux,macOS,Windows	DET0452	M1024,M1026,M1028,M1038,M1054
+T1553.001	Gatekeeper Bypass	defense-impairment	macOS	DET0288	M1038
+T1553.002	Code Signing	defense-impairment	macOS,Windows	DET0230	
+T1553.003	SIP and Trust Provider Hijacking	defense-impairment	Windows	DET0442	M1022,M1024,M1038
+T1553.004	Install Root Certificate	defense-impairment	Linux,macOS,Windows	DET0056	M1028,M1054
+T1553.005	Mark-of-the-Web Bypass	defense-impairment	Windows	DET0257	M1038,M1042
+T1553.006	Code Signing Policy Modification	defense-impairment	macOS,Windows	DET0523	M1024,M1026,M1046
+T1554	Compromise Host Software Binary	persistence	ESXi,Linux,macOS,Windows	DET0336	M1045
+T1555	Credentials from Password Stores	credential-access	IaaS,Linux,macOS,Windows	DET0430	M1026,M1027,M1051
+T1555.001	Keychain	credential-access	macOS	DET0396	M1027
+T1555.002	Securityd Memory	credential-access	Linux,macOS	DET0057	
+T1555.003	Credentials from Web Browsers	credential-access	Linux,macOS,Windows	DET0037	M1017,M1018,M1021,M1027,M1051
+T1555.004	Windows Credential Manager	credential-access	Windows	DET0134	M1042
+T1555.005	Password Managers	credential-access	Linux,macOS,Windows	DET0597	M1017,M1018,M1027,M1051,M1054
+T1555.006	Cloud Secrets Management Stores	credential-access	IaaS	DET0130	M1026
+T1556	Modify Authentication Process	defense-impairment,persistence,credential-access	IaaS,Identity Provider,Linux,macOS,Network Devices,Office Suite,SaaS,Windows	DET0104	M1018,M1022,M1024,M1025,M1026,M1027,M1028,M1032,M1047
+T1556.001	Domain Controller Authentication	defense-impairment,persistence,credential-access	Windows	DET0271	M1017,M1025,M1026,M1032
+T1556.002	Password Filter DLL	defense-impairment,persistence,credential-access	Windows	DET0472	M1028
+T1556.003	Pluggable Authentication Modules	defense-impairment,persistence,credential-access	Linux,macOS	DET0454	M1026,M1032
+T1556.004	Network Device Authentication	defense-impairment,persistence,credential-access	Network Devices	DET0272	M1026,M1032
+T1556.005	Reversible Encryption	defense-impairment,persistence,credential-access	Windows	DET0589	M1026,M1027
+T1556.006	Multi-Factor Authentication	defense-impairment,persistence,credential-access	IaaS,Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0190	M1018,M1032,M1047
+T1556.007	Hybrid Identity	defense-impairment,persistence,credential-access	IaaS,Identity Provider,Office Suite,SaaS,Windows	DET0293	M1026,M1032,M1047
+T1556.008	Network Provider DLL	defense-impairment,persistence,credential-access	Windows	DET0580	M1024,M1028,M1047
+T1556.009	Conditional Access Policies	defense-impairment,persistence,credential-access	IaaS,Identity Provider	DET0030	M1018
+T1557	Adversary-in-the-Middle	credential-access,collection	Linux,macOS,Network Devices,Windows	DET0296	M1017,M1030,M1031,M1035,M1037,M1041,M1042
+T1557.001	Name Resolution Poisoning and SMB Relay	credential-access,collection	Windows	DET0462	M1030,M1031,M1037,M1042
+T1557.002	ARP Cache Poisoning	credential-access,collection	Linux,Windows,macOS	DET0387	M1017,M1031,M1035,M1037,M1041,M1042
+T1557.003	DHCP Spoofing	credential-access,collection	Linux,Windows,macOS	DET0468	M1031,M1037
+T1557.004	Evil Twin	credential-access,collection	Network Devices	DET0379	M1017,M1031
+T1558	Steal or Forge Kerberos Tickets	credential-access	Linux,macOS,Windows	DET0522	M1015,M1026,M1027,M1041,M1043,M1047
+T1558.001	Golden Ticket	credential-access	Windows	DET0144	M1015,M1026
+T1558.002	Silver Ticket	credential-access	Windows	DET0241	M1026,M1027,M1041
+T1558.003	Kerberoasting	credential-access	Windows	DET0157	M1026,M1027,M1041
+T1558.004	AS-REP Roasting	credential-access	Windows	DET0113	M1027,M1041,M1047
+T1558.005	Ccache Files	credential-access	Linux,macOS	DET0024	M1043,M1047
+T1559	Inter-Process Communication	execution	Linux,macOS,Windows	DET0493	M1013,M1026,M1040,M1042,M1048,M1054
+T1559.001	Component Object Model	execution	Windows	DET0224	M1026,M1048
+T1559.002	Dynamic Data Exchange	execution	Windows	DET0504	M1040,M1042,M1048,M1054
+T1559.003	XPC Services	execution	macOS	DET0335	M1013
+T1560	Archive Collected Data	collection	Linux,macOS,Windows	DET0526	M1047
+T1560.001	Archive via Utility	collection	Linux,macOS,Windows	DET0298	M1047
+T1560.002	Archive via Library	collection	Linux,macOS,Windows	DET0268	
+T1560.003	Archive via Custom Method	collection	Linux,macOS,Windows	DET0438	
+T1561	Disk Wipe	impact	Linux,macOS,Windows,Network Devices	DET0137	M1053
+T1561.001	Disk Content Wipe	impact	Linux,macOS,Network Devices,Windows	DET0316	M1053
+T1561.002	Disk Structure Wipe	impact	Linux,macOS,Network Devices,Windows	DET0297	M1053
+T1563	Remote Service Session Hijacking	lateral-movement	Linux,macOS,Windows	DET0079	M1018,M1026,M1027,M1030,M1042
+T1563.001	SSH Hijacking	lateral-movement	Linux,macOS	DET0256	M1022,M1026,M1027,M1042
+T1563.002	RDP Hijacking	lateral-movement	Windows	DET0588	M1018,M1026,M1028,M1030,M1035,M1042,M1047
+T1564	Hide Artifacts	stealth	ESXi,Linux,macOS,Office Suite,Windows	DET0502	M1013,M1033,M1047,M1049
+T1564.001	Hidden Files and Directories	stealth	Linux,macOS,Windows	DET0032	
+T1564.002	Hidden Users	stealth	Linux,macOS,Windows	DET0353	M1028
+T1564.003	Hidden Window	stealth	Linux,macOS,Windows	DET0128	M1033,M1038
+T1564.004	NTFS File Attributes	stealth	Windows	DET0432	M1022
+T1564.005	Hidden File System	stealth	Linux,macOS,Windows	DET0461	
+T1564.006	Run Virtual Instance	stealth	ESXi,Linux,macOS,Windows	DET0321	M1038,M1042,M1047
+T1564.007	VBA Stomping	stealth	Linux,macOS,Windows	DET0012	M1042
+T1564.008	Email Hiding Rules	stealth	Windows,Linux,macOS,Office Suite	DET0192	M1047
+T1564.009	Resource Forking	stealth	macOS	DET0584	M1013
+T1564.010	Process Argument Spoofing	stealth	Windows	DET0045	
+T1564.011	Ignore Process Interrupts	stealth	Linux,macOS,Windows	DET0067	
+T1564.012	File/Path Exclusions	stealth	Linux,macOS,Windows	DET0051	M1013,M1049
+T1564.013	Bind Mounts	stealth	Linux	DET0428	
+T1564.014	Extended Attributes	stealth	Linux,macOS	DET0406	M1040
+T1565	Data Manipulation	impact	Linux,macOS,Windows	DET0059	M1022,M1029,M1030,M1041
+T1565.001	Stored Data Manipulation	impact	Linux,macOS,Windows	DET0193	M1022,M1029,M1041
+T1565.002	Transmitted Data Manipulation	impact	Linux,macOS,Windows	DET0254	M1041
+T1565.003	Runtime Data Manipulation	impact	Linux,macOS,Windows	DET0391	M1022,M1030
+T1566	Phishing	initial-access	Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0070	M1017,M1021,M1031,M1047,M1049,M1054
+T1566.001	Spearphishing Attachment	initial-access	Linux,macOS,Windows	DET0236	M1017,M1018,M1021,M1031,M1047,M1049,M1054
+T1566.002	Spearphishing Link	initial-access	Identity Provider,Linux,macOS,Office Suite,SaaS,Windows	DET0107	M1017,M1018,M1021,M1047,M1054
+T1566.003	Spearphishing via Service	initial-access	Linux,macOS,Windows	DET0115	M1017,M1018,M1021,M1047,M1049
+T1566.004	Spearphishing Voice	initial-access	Linux,macOS,Windows,Identity Provider	DET0245	M1017
+T1567	Exfiltration Over Web Service	exfiltration	ESXi,Linux,macOS,Office Suite,SaaS,Windows	DET0548	M1021,M1057
+T1567.001	Exfiltration to Code Repository	exfiltration	ESXi,Linux,macOS,Windows	DET0318	M1021
+T1567.002	Exfiltration to Cloud Storage	exfiltration	ESXi,Linux,macOS,Windows	DET0570	M1021
+T1567.003	Exfiltration to Text Storage Sites	exfiltration	Linux,macOS,Windows,ESXi	DET0284	M1021
+T1567.004	Exfiltration Over Webhook	exfiltration	ESXi,Linux,macOS,Office Suite,SaaS,Windows	DET0153	M1057
+T1568	Dynamic Resolution	command-and-control	ESXi,Linux,macOS,Windows	DET0039	M1021,M1031
+T1568.001	Fast Flux DNS	command-and-control	Linux,macOS,Windows,ESXi	DET0485	
+T1568.002	Domain Generation Algorithms	command-and-control	ESXi,Linux,macOS,Windows	DET0419	M1021,M1031
+T1568.003	DNS Calculation	command-and-control	ESXi,Linux,macOS,Windows	DET0262	
+T1569	System Services	execution	Windows,macOS,Linux	DET0279	M1018,M1022,M1026,M1040
+T1569.001	Launchctl	execution	macOS	DET0265	M1018
+T1569.002	Service Execution	execution	Windows	DET0421	M1022,M1026,M1040
+T1569.003	Systemctl	execution	Linux	DET0073	M1018
+T1570	Lateral Tool Transfer	lateral-movement	ESXi,Linux,macOS,Windows	DET0183	M1031,M1037
+T1571	Non-Standard Port	command-and-control	ESXi,Linux,macOS,Windows	DET0227	M1030,M1031
+T1572	Protocol Tunneling	command-and-control	ESXi,Linux,macOS,Windows	DET0538	M1031,M1037
+T1573	Encrypted Channel	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0273	M1020,M1031
+T1573.001	Symmetric Cryptography	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0143	M1031
+T1573.002	Asymmetric Cryptography	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0543	M1020,M1031
+T1574	Hijack Execution Flow	stealth,execution	Linux,macOS,Windows	DET0218	M1013,M1018,M1022,M1024,M1038,M1040,M1044,M1047,M1051,M1052
+T1574.001	DLL	stealth,execution	Windows	DET0201	M1013,M1038,M1044,M1047,M1051
+T1574.004	Dylib Hijacking	stealth,execution	macOS	DET0152	M1022
+T1574.005	Executable Installer File Permissions Weakness	stealth,execution	Windows	DET0038	M1018,M1047,M1052
+T1574.006	Dynamic Linker Hijacking	stealth,execution	Linux,macOS	DET0435	M1028,M1038
+T1574.007	Path Interception by PATH Environment Variable	stealth,execution	Linux,macOS,Windows	DET0004	M1022,M1038,M1047
+T1574.008	Path Interception by Search Order Hijacking	stealth,execution	Windows	DET0564	M1022,M1038,M1047
+T1574.009	Path Interception by Unquoted Path	stealth,execution	Windows	DET0064	M1022,M1038,M1047
+T1574.010	Services File Permissions Weakness	stealth,execution	Windows	DET0436	M1018,M1047,M1052
+T1574.011	Services Registry Permissions Weakness	stealth,execution	Windows	DET0427	M1024
+T1574.012	COR_PROFILER	stealth,execution	Windows	DET0479	M1018,M1024,M1038
+T1574.013	KernelCallbackTable	stealth,execution	Windows	DET0577	M1040
+T1574.014	AppDomainManager	stealth,execution	Windows	DET0517	M1022
+T1578	Modify Cloud Compute Infrastructure	defense-impairment	IaaS	DET0308	M1018,M1047
+T1578.001	Create Snapshot	defense-impairment	IaaS	DET0423	M1018,M1047
+T1578.002	Create Cloud Instance	defense-impairment	IaaS	DET0449	M1018,M1047
+T1578.003	Delete Cloud Instance	defense-impairment	IaaS	DET0084	M1018,M1047
+T1578.004	Revert Cloud Instance	defense-impairment	IaaS	DET0337	
+T1578.005	Modify Cloud Compute Configurations	defense-impairment	IaaS	DET0492	M1018,M1047
+T1580	Cloud Infrastructure Discovery	discovery	IaaS	DET0169	M1018
+T1583	Acquire Infrastructure	resource-development	PRE	DET0895	M1056
+T1583.001	Domains	resource-development	PRE	DET0892	M1056
+T1583.002	DNS Server	resource-development	PRE	DET0862	M1056
+T1583.003	Virtual Private Server	resource-development	PRE	DET0838	M1056
+T1583.004	Server	resource-development	PRE	DET0871	M1056
+T1583.005	Botnet	resource-development	PRE	DET0837	M1056
+T1583.006	Web Services	resource-development	PRE	DET0896	M1056
+T1583.007	Serverless	resource-development	PRE	DET0829	M1056
+T1583.008	Malvertising	resource-development	PRE	DET0836	M1056
+T1584	Compromise Infrastructure	resource-development	PRE	DET0885	M1056
+T1584.001	Domains	resource-development	PRE	DET0863	M1056
+T1584.002	DNS Server	resource-development	PRE	DET0891	M1056
+T1584.003	Virtual Private Server	resource-development	PRE	DET0854	M1056
+T1584.004	Server	resource-development	PRE	DET0874	M1056
+T1584.005	Botnet	resource-development	PRE	DET0883	M1056
+T1584.006	Web Services	resource-development	PRE	DET0882	M1056
+T1584.007	Serverless	resource-development	PRE	DET0864	M1056
+T1584.008	Network Devices	resource-development	PRE	DET0859	M1056
+T1585	Establish Accounts	resource-development	PRE	DET0873	M1056
+T1585.001	Social Media Accounts	resource-development	PRE	DET0851	M1056
+T1585.002	Email Accounts	resource-development	PRE	DET0835	M1056
+T1585.003	Cloud Accounts	resource-development	PRE	DET0846	M1056
+T1586	Compromise Accounts	resource-development	PRE	DET0876	M1056
+T1586.001	Social Media Accounts	resource-development	PRE	DET0870	M1056
+T1586.002	Email Accounts	resource-development	PRE	DET0861	M1056
+T1586.003	Cloud Accounts	resource-development	PRE	DET0879	M1056
+T1587	Develop Capabilities	resource-development	PRE	DET0853	M1056
+T1587.001	Malware	resource-development	PRE	DET0872	M1056
+T1587.002	Code Signing Certificates	resource-development	PRE	DET0833	M1056
+T1587.003	Digital Certificates	resource-development	PRE	DET0844	M1056
+T1587.004	Exploits	resource-development	PRE	DET0894	M1056
+T1588	Obtain Capabilities	resource-development	PRE	DET0850	M1056
+T1588.001	Malware	resource-development	PRE	DET0845	M1056
+T1588.002	Tool	resource-development	PRE	DET0852	M1056
+T1588.003	Code Signing Certificates	resource-development	PRE	DET0875	M1056
+T1588.004	Digital Certificates	resource-development	PRE	DET0848	M1056
+T1588.005	Exploits	resource-development	PRE	DET0827	M1056
+T1588.006	Vulnerabilities	resource-development	PRE	DET0808	M1056
+T1588.007	Artificial Intelligence	resource-development	PRE	DET0842	M1056
+T1589	Gather Victim Identity Information	reconnaissance	PRE	DET0841	M1056
+T1589.001	Credentials	reconnaissance	PRE	DET0813	M1056
+T1589.002	Email Addresses	reconnaissance	PRE	DET0814	M1056
+T1589.003	Employee Names	reconnaissance	PRE	DET0857	M1056
+T1590	Gather Victim Network Information	reconnaissance	PRE	DET0869	M1056
+T1590.001	Domain Properties	reconnaissance	PRE	DET0847	M1056
+T1590.002	DNS	reconnaissance	PRE	DET0843	M1054
+T1590.003	Network Trust Dependencies	reconnaissance	PRE	DET0828	M1056
+T1590.004	Network Topology	reconnaissance	PRE	DET0819	M1056
+T1590.005	IP Addresses	reconnaissance	PRE	DET0815	M1056
+T1590.006	Network Security Appliances	reconnaissance	PRE	DET0889	M1056
+T1591	Gather Victim Org Information	reconnaissance	PRE	DET0890	M1056
+T1591.001	Determine Physical Locations	reconnaissance	PRE	DET0806	M1056
+T1591.002	Business Relationships	reconnaissance	PRE	DET0855	M1056
+T1591.003	Identify Business Tempo	reconnaissance	PRE	DET0849	M1056
+T1591.004	Identify Roles	reconnaissance	PRE	DET0807	M1056
+T1592	Gather Victim Host Information	reconnaissance	PRE	DET0826	M1056
+T1592.001	Hardware	reconnaissance	PRE	DET0887	M1056
+T1592.002	Software	reconnaissance	PRE	DET0888	M1056
+T1592.003	Firmware	reconnaissance	PRE	DET0818	M1056
+T1592.004	Client Configurations	reconnaissance	PRE	DET0820	M1056
+T1593	Search Open Websites/Domains	reconnaissance	PRE	DET0856	M1013,M1047
+T1593.001	Social Media	reconnaissance	PRE	DET0812	M1056
+T1593.002	Search Engines	reconnaissance	PRE	DET0811	M1056
+T1593.003	Code Repositories	reconnaissance	PRE	DET0805	M1013,M1047
+T1594	Search Victim-Owned Websites	reconnaissance	PRE	DET0810	M1056
+T1595	Active Scanning	reconnaissance	PRE	DET0830	M1056
+T1595.001	Scanning IP Blocks	reconnaissance	PRE	DET0817	M1056
+T1595.002	Vulnerability Scanning	reconnaissance	PRE	DET0867	M1056
+T1595.003	Wordlist Scanning	reconnaissance	PRE	DET0868	M1042,M1056
+T1596	Search Open Technical Databases	reconnaissance	PRE	DET0860	M1056
+T1596.001	DNS/Passive DNS	reconnaissance	PRE	DET0877	M1056
+T1596.002	WHOIS	reconnaissance	PRE	DET0832	M1056
+T1596.003	Digital Certificates	reconnaissance	PRE	DET0831	M1056
+T1596.004	CDNs	reconnaissance	PRE	DET0809	M1056
+T1596.005	Scan Databases	reconnaissance	PRE	DET0858	M1056
+T1597	Search Closed Sources	reconnaissance	PRE	DET0822	M1056
+T1597.001	Threat Intel Vendors	reconnaissance	PRE	DET0816	M1056
+T1597.002	Purchase Technical Data	reconnaissance	PRE	DET0880	M1056
+T1598	Phishing for Information	reconnaissance	PRE	DET0823	M1017,M1054
+T1598.001	Spearphishing Service	reconnaissance	PRE	DET0821	M1017
+T1598.002	Spearphishing Attachment	reconnaissance	PRE	DET0865	M1017,M1054
+T1598.003	Spearphishing Link	reconnaissance	PRE	DET0878	M1017,M1054
+T1598.004	Spearphishing Voice	reconnaissance	PRE	DET0886	M1017
+T1599	Network Boundary Bridging	defense-impairment	Network Devices	DET0006	M1026,M1027,M1032,M1037,M1043
+T1599.001	Network Address Translation Traversal	defense-impairment	Network Devices	DET0163	M1026,M1027,M1032,M1037,M1043
+T1600	Weaken Encryption	defense-impairment	Network Devices	DET0339	
+T1600.001	Reduce Key Space	defense-impairment	Network Devices	DET0243	
+T1600.002	Disable Crypto Hardware	defense-impairment	Network Devices	DET0494	
+T1601	Modify System Image	defense-impairment	Network Devices	DET0170	M1026,M1027,M1032,M1043,M1045,M1046
+T1601.001	Patch System Image	defense-impairment	Network Devices	DET0469	M1026,M1027,M1032,M1043,M1045,M1046
+T1601.002	Downgrade System Image	defense-impairment	Network Devices	DET0569	M1026,M1027,M1032,M1043,M1045,M1046
+T1602	Data from Configuration Repository	collection	Network Devices	DET0592	M1030,M1031,M1037,M1041,M1051,M1054
+T1602.001	SNMP (MIB Dump)	collection	Network Devices	DET0453	M1030,M1031,M1037,M1041,M1051,M1054
+T1602.002	Network Device Configuration Dump	collection	Network Devices	DET0233	M1030,M1031,M1037,M1041,M1051,M1054
+T1606	Forge Web Credentials	credential-access	SaaS,Windows,macOS,Linux,IaaS,Office Suite,Identity Provider	DET0260	M1018,M1026,M1047,M1054
+T1606.001	Web Cookies	credential-access	Linux,macOS,Windows,SaaS,IaaS	DET0171	M1047,M1054
+T1606.002	SAML Tokens	credential-access	SaaS,Windows,IaaS,Office Suite,Identity Provider	DET0148	M1015,M1018,M1026,M1047
+T1608	Stage Capabilities	resource-development	PRE	DET0839	M1056
+T1608.001	Upload Malware	resource-development	PRE	DET0824	M1056
+T1608.002	Upload Tool	resource-development	PRE	DET0834	M1056
+T1608.003	Install Digital Certificate	resource-development	PRE	DET0840	M1056
+T1608.004	Drive-by Target	resource-development	PRE	DET0825	M1056
+T1608.005	Link Target	resource-development	PRE	DET0893	M1056
+T1608.006	SEO Poisoning	resource-development	PRE	DET0881	M1056
+T1608.007	AI Result Poisoning	resource-development	PRE	DET0922	M1056
+T1609	Container Administration Command	execution	Containers	DET0065	M1018,M1026,M1035,M1038,M1042
+T1610	Deploy Container	execution	Containers	DET0249	M1018,M1030,M1035,M1047
+T1611	Escape to Host	privilege-escalation	Windows,Linux,Containers,ESXi	DET0219	M1026,M1038,M1042,M1048,M1051
+T1612	Build Image on Host	stealth	Containers	DET0459	M1026,M1030,M1035,M1047
+T1613	Container and Resource Discovery	discovery	Containers	DET0490	M1018,M1030,M1035
+T1614	System Location Discovery	discovery	IaaS,Linux,macOS,Windows	DET0043	
+T1614.001	System Language Discovery	discovery	Linux,macOS,Windows	DET0565	
+T1615	Group Policy Discovery	discovery	Windows	DET0055	
+T1619	Cloud Storage Object Discovery	discovery	IaaS	DET0578	M1018
+T1620	Reflective Code Loading	stealth	Linux,macOS,Windows	DET0300	
+T1621	Multi-Factor Authentication Request Generation	credential-access	Windows,Linux,macOS,IaaS,SaaS,Office Suite,Identity Provider	DET0160	M1017,M1032,M1036
+T1622	Debugger Evasion	stealth,discovery	Linux,macOS,Windows	DET0371	
+T1647	Plist File Modification	defense-impairment	macOS	DET0109	M1013
+T1648	Serverless Execution	execution	SaaS,IaaS,Office Suite	DET0374	M1018,M1036
+T1649	Steal or Forge Authentication Certificates	credential-access	Windows,Linux,macOS,Identity Provider	DET0240	M1015,M1041,M1042,M1047
+T1650	Acquire Access	resource-development	PRE	DET0884	M1056
+T1651	Cloud Administration Command	execution	IaaS	DET0545	M1026
+T1652	Device Driver Discovery	discovery	Linux,macOS,Windows	DET0579	
+T1653	Power Settings	persistence	Windows,Linux,macOS,Network Devices	DET0417	M1047
+T1654	Log Enumeration	discovery	ESXi,IaaS,Linux,macOS,Windows	DET0255	M1018
+T1657	Financial Theft	impact	Linux,macOS,Office Suite,SaaS,Windows	DET0495	M1017,M1018
+T1659	Content Injection	initial-access,command-and-control	Linux,macOS,Windows	DET0349	M1021,M1041
+T1665	Hide Infrastructure	command-and-control	ESXi,Linux,macOS,Network Devices,Windows	DET0411	
+T1666	Modify Cloud Resource Hierarchy	defense-impairment	IaaS	DET0155	M1018,M1047,M1054
+T1667	Email Bombing	impact	Linux,Office Suite,Windows,macOS	DET0355	M1017,M1054
+T1668	Exclusive Control	persistence	Linux,macOS,Windows	DET0015	
+T1669	Wi-Fi Networks	initial-access	Linux,Network Devices,Windows,macOS	DET0536	M1030,M1032,M1041
+T1671	Cloud Application Integration	persistence	Office Suite,SaaS	DET0539	M1042,M1047
+T1673	Virtual Machine Discovery	discovery	ESXi,Linux,macOS,Windows	DET0199	
+T1674	Input Injection	execution	Windows,macOS,Linux	DET0568	M1034,M1038
+T1675	ESXi Administration Command	execution	ESXi	DET0232	M1018
+T1677	Poisoned Pipeline Execution	execution	SaaS	DET0533	M1018,M1054
+T1678	Delay Execution	stealth	Linux,macOS,Windows	DET0372	
+T1679	Selective Exclusion	stealth	Windows	DET0897	
+T1680	Local Storage Discovery	discovery	ESXi,IaaS,Linux,macOS,Windows	DET0188	
+T1681	Search Threat Vendor Data	reconnaissance	PRE	DET0866	M1056
+T1682	Query Public AI Services	reconnaissance	PRE	DET0919	M1056
+T1683	Generate Content	resource-development	PRE	DET0916	M1056
+T1683.001	Written Content	resource-development	PRE	DET0917	M1056
+T1683.002	Audio-Visual Content	resource-development	PRE	DET0918	M1056
+T1684	Social Engineering	stealth	Linux,macOS,Office Suite,SaaS,Windows	DET0899	M1017,M1036,M1047
+T1684.001	Impersonation	stealth	Linux,macOS,Office Suite,SaaS,Windows	DET0286	M1017,M1019
+T1684.002	Email Spoofing	stealth	Linux,macOS,Office Suite,Windows	DET0431	M1054
+T1685	Disable or Modify Tools	defense-impairment	Containers,ESXi,IaaS,Linux,macOS,Network Devices,Windows	DET0497	M1018,M1022,M1024,M1038,M1042,M1047,M1054
+T1685.001	Disable or Modify Windows Event Log	defense-impairment	Windows	DET0187	M1018,M1022,M1024,M1047
+T1685.002	Disable or Modify Cloud Log	defense-impairment	IaaS,SaaS,Identity Provider,Office Suite	DET0289	M1018
+T1685.003	Modify or Spoof Tool UI	defense-impairment	Linux,macOS,Windows	DET0311	M1038
+T1685.004	Disable or Modify Linux Audit System Log	defense-impairment	Linux	DET0062	M1018,M1047
+T1685.005	Clear Windows Event Logs	defense-impairment	Windows	DET0532	M1022,M1029,M1041
+T1685.006	Clear Linux or Mac System Logs	defense-impairment	Linux,macOS	DET0520	M1022,M1029,M1041
+T1685.007	Impair Autonomous Defenses	defense-impairment	Windows,SaaS	DET0943	M1018,M1022,M1026,M1038,M1047
+T1686	Disable or Modify System Firewall	defense-impairment	ESXi,Linux,macOS,Network Devices,Windows	DET0145	M1018,M1022,M1024,M1047
+T1686.001	Cloud Firewall	defense-impairment	IaaS	DET0424	M1018,M1047
+T1686.002	Network Device Firewall	defense-impairment	Network Devices	DET0306	M1018,M1047,M1051
+T1686.003	Windows Host Firewall	defense-impairment	Windows	DET0901	M1018,M1022,M1024,M1047
+T1687	Exploitation for Defense Impairment	defense-impairment	IaaS,Linux,macOS,SaaS,Windows	DET0900	
+T1688	Safe Mode Boot	defense-impairment	Windows	DET0116	M1026,M1054
+T1689	Downgrade Attack	defense-impairment	macOS,Windows,Linux	DET0350	M1042,M1054
+T1690	Prevent Command History Logging	defense-impairment	ESXi,Linux,macOS,Network Devices,Windows	DET0563	M1028,M1039
+T1696	Anti-Automation Evasion	stealth	SaaS	DET0939	M1031,M1037
+T1696.001	Automate CAPTCHA Completion	stealth	SaaS	DET0937	M1031,M1037
+T1696.002	Avoid CAPTCHA	stealth	SaaS	DET0938	M1031,M1037
+T1697	Steal Application Specific Passwords	credential-access	Office Suite,Identity Provider,SaaS	DET0926	M1017,M1018,M1036,M1042
+T1698	Indirect Prompt Injection	execution	Windows,SaaS	DET0942	M1017,M1018,M1022,M1026,M1030,M1038
+T1699	Direct Prompt Injection	execution	Windows,SaaS	DET0941	M1017,M1018,M1026,M1038
+T1700	AI-Enabled Exfiltration	exfiltration	Windows,SaaS	DET0927	M1017,M1022,M1048

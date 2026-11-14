@@ -1,0 +1,1180 @@
+# outside-in :: exposed network services catalog
+# ATT&CK Enterprise v20.1. Every T/DET/M ID is checked by scripts/Update-AttackMapping.ps1.
+#
+# Field guide
+#   weight       critical | high | medium | low   -> feeds the EPS "Class" factor (25 / 20 / 10 / 3)
+#   passive      Shodan-style filter. Replace <CIDR> / <ORG> / <DOMAIN>. Equivalent queries exist in Censys, FOFA,
+#                ZoomEye, Netlas and ONYPHE. Translate rather than copy blindly, because syntaxes change.
+#   proof        least-touch probe (needs active authorisation) + the rung on the evidence ladder it reaches
+#                (docs/methodology.md section 4). "roe_gated: true" = involves default or anonymous credentials or
+#                OT safety risk, so run it only if the RoE explicitly allows it; otherwise ask the owner for E4.
+#   attack       techniques the exposure enables (initial access / follow-on). Recon defaults below apply to all.
+#   soc_watch    ATT&CK Detection Strategies the SOC should have coverage for while the exposure is open.
+#   intel        illustrative CVEs and notes. ALWAYS re-check CISA KEV + EPSS + vendor advisories live.
+
+schema_version: 1
+attack_version: "20.1"
+defaults:
+  recon: [T1595.001, T1595.002, T1596.005, T1590.005, T1046]   # how attackers find every entry below
+  recon_watch: [DET0817, DET0867, DET0858, DET0815, DET0376]
+
+services:
+
+# ───────────────────────────── remote administration ─────────────────────────────
+- id: rdp
+  name: Remote Desktop Protocol
+  family: remote-admin
+  ports: ["3389/tcp", "3389/udp"]
+  weight: high
+  risk: "Top ransomware entry point. Exposes a login surface for password spraying, pre-auth RCE history, and NTLM info leak (AD domain, hostname, OS build)."
+  passive: "net:<CIDR> port:3389"
+  proof: {rung: E2, cmd: "nmap -Pn -p3389 --script rdp-ntlm-info,rdp-enum-encryption <ip>", exposed_if: "RDP negotiation completes; record NLA/CredSSP status and the leaked NetBIOS/DNS domain"}
+  attack: {access: [T1133, T1110.003, T1078.002], follow_on: [T1021.001, T1563.002, T1486]}
+  soc_watch: [DET0354, DET0487, DET0210, DET0327, DET0588, DET0215]
+  mitigations: [M1035, M1032, M1042, M1030, M1027]
+  fix: "Remove from the internet. Publish only through ZTNA or RD Gateway with phishing-resistant MFA. Enforce NLA and account lockout."
+  intel: ["CVE-2019-0708 (BlueKeep)", "Rapid7 2026: RDP is the most-advertised access type on underground forums"]
+
+- id: ssh
+  name: Secure Shell
+  family: remote-admin
+  ports: ["22/tcp", "2222/tcp"]
+  weight: high
+  risk: "Password brute force when password auth is on. Unpatched daemons (OpenSSH, Erlang/OTP, appliance SSH) give pre-auth RCE. Banners leak OS and patch level."
+  passive: "net:<CIDR> port:22"
+  proof: {rung: E2, cmd: "nmap -Pn -p22 -sV --script ssh-auth-methods,ssh2-enum-algos <ip>", exposed_if: "Handshake completes; flag 'password' or 'keyboard-interactive' in auth methods and outdated versions"}
+  attack: {access: [T1133, T1110.001, T1190], follow_on: [T1021.004, T1098.004]}
+  soc_watch: [DET0354, DET0551, DET0080, DET0596]
+  mitigations: [M1035, M1032, M1042, M1051]
+  fix: "Restrict to a bastion or ZTNA. Use key-only or certificate auth, disable passwords, and patch the daemon."
+  intel: ["CVE-2024-6387 (regreSSHion)", "CVE-2025-32433 (Erlang/OTP SSH pre-auth RCE, common in network and OT gear)"]
+
+- id: telnet
+  name: Telnet
+  family: remote-admin
+  ports: ["23/tcp", "2323/tcp"]
+  weight: high
+  risk: "Cleartext credentials. Usually network gear, IoT or OT with default passwords. A favourite botnet recruitment port."
+  passive: "net:<CIDR> port:23"
+  proof: {rung: E2, cmd: "nmap -Pn -p23 -sV --script telnet-ntlm-info <ip>", exposed_if: "Login prompt or banner returned"}
+  attack: {access: [T1133, T1078.001, T1110.001], follow_on: [T1584.005]}
+  soc_watch: [DET0354, DET0465, DET0551]
+  mitigations: [M1042, M1035, M1041]
+  fix: "Disable Telnet and replace with SSH. Change default credentials. Move management to an out-of-band network."
+
+- id: vnc
+  name: VNC / RFB
+  family: remote-admin
+  ports: ["5900-5910/tcp", "5800/tcp"]
+  weight: high
+  risk: "Weak or missing authentication. Often exposes HMI and OT screens or admin desktops directly."
+  passive: "net:<CIDR> port:5900"
+  proof: {rung: E3, cmd: "nmap -Pn -p5900-5910 --script vnc-info <ip>", exposed_if: "Security type 'None' (1) offered = unauthenticated desktop (force P1). VNC auth only = E2"}
+  attack: {access: [T1133, T1110.001], follow_on: [T1021.005]}
+  soc_watch: [DET0354, DET0551, DET0178]
+  mitigations: [M1035, M1042, M1047]
+  fix: "Remove from the internet. Tunnel over ZTNA or SSH. Enforce strong authentication. Remove unused VNC servers."
+
+- id: winrm
+  name: Windows Remote Management
+  family: remote-admin
+  ports: ["5985/tcp", "5986/tcp"]
+  weight: high
+  risk: "Remote PowerShell. Valid credentials give direct command execution. NTLM auth exposes a spray target."
+  passive: "net:<CIDR> port:5985,5986"
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -D - -X POST http://<ip>:5985/wsman | head -n 5; curl -sk -o /dev/null -D - -X POST https://<ip>:5986/wsman | head -n 5", exposed_if: "401 with WWW-Authenticate Negotiate/Kerberos/NTLM on /wsman = WinRM listener reachable"}
+  attack: {access: [T1133, T1110.003], follow_on: [T1021.006, T1059.001]}
+  soc_watch: [DET0354, DET0487, DET0477]
+  mitigations: [M1035, M1042, M1030, M1026]
+  fix: "Block at the perimeter. Restrict to management subnets. Use JEA endpoints."
+
+- id: rd-web-gateway
+  name: RD Web Access / RD Gateway / RDWeb
+  family: remote-admin
+  ports: ["443/tcp"]
+  weight: high
+  risk: "Web front end to RDP. Brute-forceable without MFA. Rapid7 2026 lists RDWeb among the most-advertised access types."
+  passive: "hostname:<DOMAIN> http.title:\"RD Web Access\""
+  proof: {rung: E2, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<host>/RDWeb/", exposed_if: "200 or 302 to the RDWeb login page"}
+  attack: {access: [T1133, T1110.003], follow_on: [T1021.001]}
+  soc_watch: [DET0354, DET0487, DET0327]
+  mitigations: [M1032, M1035, M1036]
+  fix: "Put it behind an identity-aware proxy with phishing-resistant MFA, or retire it in favour of ZTNA."
+
+- id: rmm-self-hosted
+  name: Self-hosted RMM / remote support (ScreenConnect, etc.)
+  family: remote-admin
+  ports: ["8040/tcp", "8041/tcp", "443/tcp"]
+  weight: critical
+  risk: "One server controls every managed endpoint. Repeated auth-bypass KEVs. Attackers also abuse legitimate RMM for persistence."
+  passive: "http.title:\"ScreenConnect\" org:\"<ORG>\""
+  proof: {rung: E2, cmd: "nmap -Pn -p8040,8041,443 -sV --script http-title,http-headers <ip>", exposed_if: "Product login page or server header identifies an RMM build"}
+  attack: {access: [T1190, T1133], follow_on: [T1219.002, T1072, T1486]}
+  soc_watch: [DET0080, DET0354, DET0259]
+  mitigations: [M1051, M1035, M1032]
+  fix: "Patch on the KEV timeline. Front the server with SSO and MFA. Restrict the admin console to an allow-list. Inventory any unsanctioned RMM."
+  intel: ["CVE-2024-1709 (ScreenConnect auth bypass)"]
+
+- id: r-services
+  name: rlogin / rsh / rexec
+  family: remote-admin
+  ports: ["512/tcp", "513/tcp", "514/tcp"]
+  weight: high
+  risk: "Legacy trust-based auth (.rhosts). Cleartext. Should never be reachable."
+  passive: "net:<CIDR> port:512,513,514"
+  proof: {rung: E1, cmd: "nmap -Pn -p512-514 -sV <ip>", exposed_if: "Port open with an r-service banner"}
+  attack: {access: [T1133, T1078.003], follow_on: [T1021]}
+  soc_watch: [DET0354, DET0407]
+  mitigations: [M1042, M1035]
+  fix: "Disable the services and uninstall the packages."
+
+- id: x11
+  name: X11 display server
+  family: remote-admin
+  ports: ["6000-6005/tcp"]
+  weight: high
+  risk: "An open X server allows screenshots and keystroke injection."
+  passive: "net:<CIDR> port:6000"
+  proof: {rung: E3, cmd: "nmap -Pn -p6000-6005 --script x11-access <ip>", exposed_if: "x11-access reports access granted"}
+  attack: {access: [T1133], follow_on: [T1056.001, T1113]}
+  soc_watch: [DET0354]
+  mitigations: [M1042, M1035]
+  fix: "Start X with -nolisten tcp and use SSH X forwarding."
+
+# ───────────────────────────── edge / remote-access appliances ─────────────────────────────
+- id: ssl-vpn
+  name: SSL-VPN / remote-access gateways (Fortinet, Ivanti, Citrix, Palo Alto, Cisco, SonicWall, Check Point)
+  family: edge-appliance
+  ports: ["443/tcp", "10443/tcp", "4433/tcp", "8443/tcp"]
+  weight: high
+  risk: "Must be public by design, so the risk is patch latency plus credential abuse. DBIR 2026: VPN is 44% of broker-sold access, and the edge/VPN share of exploitation breaches is rising sharply."
+  passive: "ssl.cert.subject.cn:\"<DOMAIN>\" http.title:\"GlobalProtect\",\"FortiGate\",\"NetScaler\",\"Ivanti Connect Secure\""
+  proof: {rung: E2, cmd: "nmap -Pn -p443,10443,4433,8443 -sV --script http-title,ssl-cert,http-favicon <ip>", exposed_if: "Vendor portal identified. Record product and version (from login page assets, headers, or the owner)"}
+  attack: {access: [T1190, T1133, T1110.003, T1078.002], follow_on: [T1505.003, T1003.003, T1686.002]}
+  soc_watch: [DET0080, DET0354, DET0487, DET0394]
+  mitigations: [M1051, M1032, M1016, M1047]
+  fix: "Patch within KEV SLA. Use phishing-resistant MFA. Feed device logs to the SIEM. Run integrity checks after each emergency patch. Plan migration to ZTNA."
+  intel: ["CVE-2024-21762 (FortiOS SSL-VPN)", "CVE-2025-0282 (Ivanti Connect Secure)", "CVE-2023-4966 / CVE-2025-5777 (NetScaler 'Bleed')", "CVE-2024-3400 (PAN-OS GlobalProtect)", "CVE-2025-20333 (Cisco ASA/FTD)", "CVE-2024-40766 (SonicOS)"]
+
+- id: fw-mgmt-ui
+  name: Firewall / router / switch management interface
+  family: edge-appliance
+  ports: ["443/tcp", "8443/tcp", "4443/tcp", "80/tcp", "8080/tcp"]
+  weight: critical
+  risk: "Admin plane of the perimeter itself. In scope for CISA BOD 23-02. Repeated management-plane auth-bypass KEVs."
+  passive: "net:<CIDR> http.title:\"FortiGate\",\"PAN-OS\",\"SonicWall\",\"Cisco\" -port:10443"
+  proof: {rung: E2, cmd: "nmap -Pn -p80,443,4443,8080,8443 --script http-title,ssl-cert <ip>", exposed_if: "Admin login page reachable from the internet (not just the VPN portal)"}
+  attack: {access: [T1190, T1078.001, T1110.001], follow_on: [T1686.002, T1556.004, T1599]}
+  soc_watch: [DET0080, DET0465, DET0551]
+  mitigations: [M1035, M1030, M1051, M1032]
+  fix: "Management on a dedicated out-of-band network or allow-listed jump host only (BOD 23-02 model). Never on the WAN interface."
+  intel: ["CVE-2024-0012 (PAN-OS management auth bypass)", "CVE-2024-55591 (FortiOS management auth bypass)"]
+
+- id: legacy-vpn
+  name: Legacy VPN protocols (PPTP, IKEv1 aggressive mode)
+  family: edge-appliance
+  ports: ["1723/tcp", "500/udp", "4500/udp"]
+  weight: medium
+  risk: "PPTP/MS-CHAPv2 is broken. IKE aggressive mode leaks a crackable PSK hash."
+  passive: "net:<CIDR> port:1723,500"
+  proof: {rung: E2, cmd: "nmap -Pn -sU -p500 --script ike-version <ip>; nmap -Pn -p1723 -sV <ip>", exposed_if: "IKE responds with aggressive mode, or PPTP banner present"}
+  attack: {access: [T1133, T1110.002], follow_on: [T1040]}
+  soc_watch: [DET0354, DET0314]
+  mitigations: [M1042, M1041]
+  fix: "Retire PPTP. Use IKEv2 with certificates, or a modern SSL/ZTNA client."
+
+# ───────────────────────────── infrastructure management ─────────────────────────────
+- id: ipmi
+  name: IPMI over LAN (BMC)
+  family: infra-management
+  ports: ["623/udp"]
+  weight: critical
+  risk: "BMC = hardware-level control below the OS. RAKP leaks password hashes pre-auth. Cipher 0 allows auth bypass."
+  passive: "net:<CIDR> port:623"
+  proof: {rung: E3, cmd: "nmap -Pn -sU -p623 --script ipmi-version,ipmi-cipher-zero <ip>", exposed_if: "IPMI responds (E2). Cipher zero enabled = E3, force P1"}
+  attack: {access: [T1133, T1078.001, T1212], follow_on: [T1542, T1529]}
+  soc_watch: [DET0354, DET0465, DET0174]
+  mitigations: [M1035, M1030, M1042, M1027]
+  fix: "BMCs belong on an isolated management VLAN only. Disable IPMI-over-LAN if unused, disable cipher 0, and rotate BMC passwords."
+  intel: ["CVE-2013-4786 (RAKP hash disclosure, by design in IPMI 2.0)"]
+
+- id: bmc-web
+  name: BMC web consoles (iLO, iDRAC, XClarity, Supermicro)
+  family: infra-management
+  ports: ["443/tcp", "80/tcp", "5900/tcp"]
+  weight: critical
+  risk: "Remote console, virtual media and power control of physical servers. Default credentials and firmware CVEs are common."
+  passive: "net:<CIDR> http.title:\"iLO\",\"iDRAC\",\"XClarity\""
+  proof: {rung: E2, cmd: "nmap -Pn -p80,443 --script http-title,ssl-cert <ip>", exposed_if: "BMC login page reachable"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1542, T1485]}
+  soc_watch: [DET0080, DET0465, DET0146]
+  mitigations: [M1035, M1030, M1051]
+  fix: "Isolate on an OOB network behind VPN or ZTNA. Patch BMC firmware. Remove defaults."
+
+- id: vsphere
+  name: VMware vCenter / ESXi / VAMI
+  family: infra-management
+  ports: ["443/tcp", "902/tcp", "5480/tcp", "9443/tcp"]
+  weight: critical
+  risk: "Hypervisor control plane. ESXi mass ransomware (ESXiArgs and successors) encrypts whole estates at once."
+  passive: "net:<CIDR> http.title:\"vSphere\",\"VMware ESXi\""
+  proof: {rung: E2, cmd: "nmap -Pn -p443,902,5480 --script vmware-version,ssl-cert <ip>", exposed_if: "vmware-version returns a product and build"}
+  attack: {access: [T1190, T1078.002], follow_on: [T1059.012, T1486, T1490]}
+  soc_watch: [DET0080, DET0210, DET0215]
+  mitigations: [M1035, M1030, M1051, M1053]
+  fix: "Never expose to the internet. Restrict to an admin jump network. Patch. Disable SLP on ESXi. Keep immutable or offline backups."
+  intel: ["CVE-2021-21972 (vCenter vROPs plugin RCE)", "CVE-2021-21974 (ESXi OpenSLP, ESXiArgs)"]
+
+- id: slp
+  name: Service Location Protocol
+  family: infra-management
+  ports: ["427/tcp", "427/udp"]
+  weight: high
+  risk: "ESXi RCE history, plus a very high-factor UDP reflection amplifier."
+  passive: "net:<CIDR> port:427"
+  proof: {rung: E1, cmd: "nmap -Pn -sU -sV -p427 <ip>", exposed_if: "SLP responds"}
+  attack: {access: [T1190], follow_on: [T1498.002, T1486]}
+  soc_watch: [DET0080, DET0408]
+  mitigations: [M1042, M1037]
+  fix: "Disable the SLP service (ESXi: stop slpd and close firewall rule)."
+  intel: ["CVE-2023-29552 (SLP reflective DoS amplification)"]
+
+- id: snmp
+  name: SNMP v1/v2c
+  family: infra-management
+  ports: ["161/udp"]
+  weight: high
+  risk: "Default community strings expose full device config, routing tables and ARP. Writable communities allow config changes."
+  passive: "net:<CIDR> port:161"
+  proof: {rung: E3, roe_gated: true, cmd: "nmap -Pn -sU -p161 --script snmp-info <ip> (E2, no community string); then, only if the RoE allows default-credential tests: nmap -Pn -sU -p161 --script snmp-sysdescr <ip>", exposed_if: "snmp-info answers = SNMP reachable (E2). snmp-sysdescr returns sysDescr using the default 'public' community = E3. Without RoE approval, stop at E2 and ask the owner"}
+  attack: {access: [T1078.001], follow_on: [T1602.001, T1590.004]}
+  soc_watch: [DET0465]
+  mitigations: [M1042, M1035, M1041]
+  fix: "Block at the edge. Migrate to SNMPv3 authPriv. Remove default and RW communities."
+
+- id: cisco-smart-install
+  name: Cisco Smart Install
+  family: infra-management
+  ports: ["4786/tcp"]
+  weight: critical
+  risk: "Unauthenticated config download and replacement on switches. Abused by state actors."
+  passive: "net:<CIDR> port:4786"
+  proof: {rung: E1, cmd: "nmap -Pn -p4786 -sV <ip>", exposed_if: "Port open (the protocol has no auth, so open = vulnerable)"}
+  attack: {access: [T1190], follow_on: [T1602.002, T1601]}
+  soc_watch: [DET0080]
+  mitigations: [M1042, M1035]
+  fix: "Run 'no vstack' and block 4786 at the edge."
+  intel: ["CVE-2018-0171"]
+
+- id: hypervisor-ui
+  name: Other virtualisation / HCI consoles (Proxmox, Nutanix Prism, Windows Admin Center, oVirt)
+  family: infra-management
+  ports: ["8006/tcp", "9440/tcp", "6516/tcp", "443/tcp"]
+  weight: critical
+  risk: "Same blast radius as vCenter: one login controls every VM."
+  passive: "net:<CIDR> http.title:\"Proxmox\",\"Prism\",\"Windows Admin Center\""
+  proof: {rung: E2, cmd: "nmap -Pn -p8006,9440,6516,443 --script http-title,ssl-cert <ip>", exposed_if: "Console login page reachable"}
+  attack: {access: [T1190, T1078.002, T1110.003], follow_on: [T1486, T1485]}
+  soc_watch: [DET0080, DET0210, DET0487, DET0215]
+  mitigations: [M1035, M1030, M1032]
+  fix: "Admin network only, MFA, patch."
+
+- id: nas-ui
+  name: NAS / storage appliance web UI (Synology, QNAP, WD, TrueNAS)
+  family: infra-management
+  ports: ["5000/tcp", "5001/tcp", "8080/tcp", "443/tcp"]
+  weight: high
+  risk: "Directly targeted by NAS ransomware families. Often holds the backups."
+  passive: "net:<CIDR> http.title:\"Synology\",\"QNAP\",\"TrueNAS\""
+  proof: {rung: E2, cmd: "nmap -Pn -p5000,5001,8080,443 --script http-title <ip>", exposed_if: "Appliance login page reachable"}
+  attack: {access: [T1190, T1110.001], follow_on: [T1486, T1485]}
+  soc_watch: [DET0080, DET0551, DET0215]
+  mitigations: [M1035, M1051, M1053]
+  fix: "Disable vendor 'quick connect' and UPnP port mapping. Reach it via VPN only. Auto-patch."
+
+- id: backup-servers
+  name: Backup infrastructure (Veeam, Commvault, Veritas, etc.)
+  family: infra-management
+  ports: ["9392/tcp", "9401/tcp", "9419/tcp", "443/tcp"]
+  weight: critical
+  risk: "Ransomware crews go for backups first (inhibit recovery). Backup servers hold domain credentials."
+  passive: "net:<CIDR> port:9392,9401"
+  proof: {rung: E1, cmd: "nmap -Pn -p9392,9401,9419,443 -sV <ip>", exposed_if: "Backup service ports reachable from the internet"}
+  attack: {access: [T1190], follow_on: [T1490, T1485, T1552.001]}
+  soc_watch: [DET0080, DET0146, DET0307]
+  mitigations: [M1035, M1030, M1051, M1053]
+  fix: "Never internet-facing. Isolate the backup network. Use immutable copies and patch on the KEV timeline."
+  intel: ["CVE-2024-40711 (Veeam Backup & Replication deserialisation)"]
+
+# ───────────────────────────── file sharing & transfer ─────────────────────────────
+- id: smb
+  name: SMB / CIFS
+  family: file-transfer
+  ports: ["445/tcp", "139/tcp"]
+  weight: critical
+  risk: "Wormable RCE history, NTLM relay and hash capture, share exposure. Should never cross the perimeter."
+  passive: "net:<CIDR> port:445"
+  proof: {rung: E2, cmd: "nmap -Pn -p445,139 --script smb-protocols,smb2-security-mode,smb-os-discovery <ip>", exposed_if: "SMB negotiation succeeds. SMBv1 enabled or signing not required = escalate"}
+  attack: {access: [T1190, T1210, T1110.003], follow_on: [T1021.002, T1557.001, T1486]}
+  soc_watch: [DET0080, DET0118, DET0487, DET0530, DET0462, DET0215]
+  mitigations: [M1037, M1042, M1035, M1051]
+  fix: "Block 445/139 inbound and outbound at the perimeter. Disable SMBv1. Require signing."
+  intel: ["CVE-2017-0144 (EternalBlue)", "CVE-2020-0796 (SMBGhost)"]
+
+- id: netbios
+  name: NetBIOS name / datagram service
+  family: file-transfer
+  ports: ["137/udp", "138/udp"]
+  weight: medium
+  risk: "Leaks hostnames, domain and logged-on users. Signals that a Windows host is directly exposed."
+  passive: "net:<CIDR> port:137"
+  proof: {rung: E2, cmd: "nmap -Pn -sU -p137 --script nbstat <ip>", exposed_if: "NetBIOS name table returned"}
+  attack: {access: [], follow_on: [T1018, T1557.001]}
+  soc_watch: [DET0462]
+  mitigations: [M1037, M1042]
+  fix: "Block at the perimeter. Disable NetBIOS over TCP/IP where unused."
+
+- id: ftp
+  name: FTP
+  family: file-transfer
+  ports: ["21/tcp"]
+  weight: high
+  risk: "Cleartext credentials. Anonymous read/write is common on appliances and legacy integrations."
+  passive: "net:<CIDR> port:21"
+  proof: {rung: E3, cmd: "nmap -Pn -p21 -sV --script ftp-anon,ftp-syst <ip>", exposed_if: "Anonymous login allowed = E3 (record listing metadata only; never download)"}
+  attack: {access: [T1078.001, T1110.001], follow_on: [T1039, T1105]}
+  soc_watch: [DET0465, DET0551]
+  mitigations: [M1042, M1041, M1035]
+  fix: "Disable anonymous access. Migrate to SFTP or managed transfer. Restrict by source IP."
+
+- id: tftp
+  name: TFTP
+  family: file-transfer
+  ports: ["69/udp"]
+  weight: high
+  risk: "No authentication at all. Often serves network device configs and PXE images."
+  passive: "net:<CIDR> port:69"
+  proof: {rung: E1, cmd: "nmap -Pn -sU -sV -p69 <ip>", exposed_if: "TFTP responds. Do not brute-force filenames"}
+  attack: {access: [T1190], follow_on: [T1602.002, T1105]}
+  soc_watch: [DET0080]
+  mitigations: [M1042, M1035]
+  fix: "Never expose. Restrict to provisioning VLANs."
+
+- id: nfs
+  name: NFS / rpcbind
+  family: file-transfer
+  ports: ["2049/tcp", "111/tcp", "111/udp"]
+  weight: high
+  risk: "World-readable exports, UID spoofing. rpcbind is also a reflection amplifier."
+  passive: "net:<CIDR> port:2049,111"
+  proof: {rung: E3, cmd: "nmap -Pn -p111,2049 --script rpcinfo,nfs-showmount <ip>", exposed_if: "Export list returned (metadata). Exports to * = escalate"}
+  attack: {access: [T1190], follow_on: [T1039, T1552.001]}
+  soc_watch: [DET0080, DET0307]
+  mitigations: [M1035, M1022, M1037]
+  fix: "Block at the edge. Restrict exports by host. Use NFSv4 with Kerberos."
+
+- id: rsync
+  name: rsync daemon
+  family: file-transfer
+  ports: ["873/tcp"]
+  weight: high
+  risk: "Modules are often unauthenticated, exposing backups and web roots, sometimes writable."
+  passive: "net:<CIDR> port:873"
+  proof: {rung: E3, cmd: "nmap -Pn -p873 --script rsync-list-modules <ip>", exposed_if: "Module list returned without auth"}
+  attack: {access: [T1190], follow_on: [T1039, T1552.001]}
+  soc_watch: [DET0080, DET0307]
+  mitigations: [M1035, M1022]
+  fix: "Require auth (secrets file). Bind to internal interfaces. Tunnel over SSH."
+
+- id: mft
+  name: Managed File Transfer (MOVEit, GoAnywhere, Cleo, CrushFTP, Kiteworks)
+  family: file-transfer
+  ports: ["443/tcp", "8000/tcp", "8001/tcp", "8443/tcp"]
+  weight: critical
+  risk: "Built to hold sensitive partner data and must be public. Repeated mass-exploitation campaigns (Clop and others) for data extortion."
+  passive: "org:\"<ORG>\" http.title:\"MOVEit\",\"GoAnywhere\",\"CrushFTP\",\"Cleo\""
+  proof: {rung: E2, cmd: "nmap -Pn -p443,8000,8001,8443 --script http-title,ssl-cert <ip>", exposed_if: "Product identified; get the exact version from the owner"}
+  attack: {access: [T1190], follow_on: [T1505.003, T1213, T1567]}
+  soc_watch: [DET0080, DET0394]
+  mitigations: [M1051, M1035, M1048, M1047]
+  fix: "Patch on the KEV timeline. Restrict the admin interface. Put the user portal behind a WAF. Alert on new web files in the install path."
+  intel: ["CVE-2023-34362 (MOVEit)", "CVE-2023-0669 (GoAnywhere)", "CVE-2024-50623 (Cleo)", "CVE-2025-31161 (CrushFTP)"]
+
+# ───────────────────────────── directory & identity infrastructure ─────────────────────────────
+- id: ldap
+  name: LDAP / LDAPS / Global Catalog / CLDAP
+  family: directory
+  ports: ["389/tcp", "636/tcp", "3268/tcp", "3269/tcp", "389/udp"]
+  weight: critical
+  risk: "Domain controller exposed. Anonymous bind leaks the directory. CLDAP (udp/389) is a large DDoS amplifier."
+  passive: "net:<CIDR> port:389,636,3268"
+  proof: {rung: E2, cmd: "nmap -Pn -p389,636,3268 --script ldap-rootdse <ip>", exposed_if: "RootDSE returns naming contexts (domain revealed). Anonymous bind beyond RootDSE = E3"}
+  attack: {access: [T1110.003, T1078.002], follow_on: [T1087.002, T1482, T1498.002]}
+  soc_watch: [DET0487, DET0210, DET0408]
+  mitigations: [M1035, M1037, M1042]
+  fix: "Domain controllers never internet-facing. Block 389/udp at the edge."
+
+- id: kerberos
+  name: Kerberos KDC
+  family: directory
+  ports: ["88/tcp", "88/udp", "464/tcp"]
+  weight: critical
+  risk: "Exposed KDC allows username enumeration and AS-REP roasting from the internet."
+  passive: "net:<CIDR> port:88"
+  proof: {rung: E1, cmd: "nmap -Pn -p88 -sV <ip>", exposed_if: "KDC responds. Do not enumerate users"}
+  attack: {access: [T1110.003], follow_on: [T1558.004, T1087.002]}
+  soc_watch: [DET0487]
+  mitigations: [M1035, M1037]
+  fix: "Block at the perimeter. Expose identity via a cloud IdP or federation proxy instead."
+
+- id: msrpc
+  name: MS-RPC endpoint mapper and dynamic RPC
+  family: directory
+  ports: ["135/tcp", "593/tcp", "49152-65535/tcp"]
+  weight: high
+  risk: "Endpoint enumeration, DCOM/WMI lateral movement path, coercion primitives."
+  passive: "net:<CIDR> port:135"
+  proof: {rung: E2, cmd: "nmap -Pn -p135 --script msrpc-enum <ip>", exposed_if: "Endpoint mapper returns interfaces"}
+  attack: {access: [T1210], follow_on: [T1021.003, T1047]}
+  soc_watch: [DET0118]
+  mitigations: [M1037, M1035, M1030]
+  fix: "Block 135 and the dynamic RPC range at the edge."
+
+# ───────────────────────────── on-prem collaboration & mail ─────────────────────────────
+- id: onprem-collab
+  name: On-prem Exchange / SharePoint / Skype for Business
+  family: collaboration
+  ports: ["443/tcp", "80/tcp"]
+  weight: critical
+  risk: "Repeated pre-auth RCE chains (ProxyShell, ToolShell) leading to web shells and machine-key theft."
+  passive: "org:\"<ORG>\" http.title:\"Outlook\",\"SharePoint\""
+  proof: {rung: E2, cmd: "curl -sk -D - -o /dev/null https://<host>/owa/auth/logon.aspx; curl -sk -D - -o /dev/null https://<host>/", exposed_if: "OWA build in page assets or MicrosoftSharePointTeamServices header; compare build to current CU/SU"}
+  attack: {access: [T1190], follow_on: [T1505.003, T1114.002, T1552.004]}
+  soc_watch: [DET0080, DET0394, DET0549]
+  mitigations: [M1051, M1048, M1050, M1016]
+  fix: "Patch every SU and rotate machine keys after emergency patches. Restrict /ecp and Central Admin. Migrate to SaaS where possible."
+  intel: ["CVE-2021-34473 (Exchange ProxyShell)", "CVE-2025-53770 (SharePoint ToolShell)"]
+
+- id: mail-legacy
+  name: Mail protocols with legacy auth (SMTP AUTH, IMAP, POP3) and open relay
+  family: collaboration
+  ports: ["25/tcp", "587/tcp", "110/tcp", "143/tcp", "993/tcp", "995/tcp"]
+  weight: medium
+  risk: "Basic-auth endpoints bypass MFA and are sprayed constantly. An open relay enables spoofing from your IPs."
+  passive: "net:<CIDR> port:110,143,993,995"
+  proof: {rung: E2, cmd: "nmap -Pn -p25,110,143,587 --script smtp-commands,imap-capabilities,pop3-capabilities <ip>", exposed_if: "Plaintext AUTH offered before STARTTLS, or legacy protocols exposed on user mailboxes. smtp-open-relay is roe_gated"}
+  attack: {access: [T1110.003, T1078.002], follow_on: [T1114.002]}
+  soc_watch: [DET0487, DET0210]
+  mitigations: [M1042, M1032, M1036]
+  fix: "Disable legacy auth. Require modern auth and MFA. Close relays."
+
+# ───────────────────────────── databases & data stores ─────────────────────────────
+- id: mssql
+  name: Microsoft SQL Server
+  family: database
+  ports: ["1433/tcp", "1434/udp"]
+  weight: critical
+  risk: "Brute force of 'sa', xp_cmdshell to OS. NTLM info leaks the domain. A steady ransomware and crypto-mining vector."
+  passive: "net:<CIDR> port:1433"
+  proof: {rung: E2, cmd: "nmap -Pn -p1433 --script ms-sql-info,ms-sql-ntlm-info <ip>", exposed_if: "Instance and version returned"}
+  attack: {access: [T1110.001, T1078.001, T1190], follow_on: [T1505.001, T1213.006, T1486, T1496.001]}
+  soc_watch: [DET0551, DET0465, DET0080, DET0242, DET0215, DET0540]
+  mitigations: [M1035, M1027, M1042, M1026]
+  fix: "Private endpoint or VPN only. Disable 'sa' and xp_cmdshell. Use Entra or AD auth with MFA for admins."
+
+- id: mysql
+  name: MySQL / MariaDB
+  family: database
+  ports: ["3306/tcp", "33060/tcp"]
+  weight: critical
+  risk: "Brute force and default 'root' without a password. Data theft and ransom-note wipes."
+  passive: "net:<CIDR> port:3306"
+  proof: {rung: E2, cmd: "nmap -Pn -p3306 --script mysql-info <ip>", exposed_if: "Server greeting with version. Auth testing is roe_gated"}
+  attack: {access: [T1110.001, T1078.001], follow_on: [T1213.006, T1485, T1486]}
+  soc_watch: [DET0551, DET0465, DET0242, DET0146]
+  mitigations: [M1035, M1027, M1041]
+  fix: "Bind to private interfaces. Use host-based auth allow-lists and TLS. Remove anonymous and root-remote accounts."
+
+- id: postgresql
+  name: PostgreSQL
+  family: database
+  ports: ["5432/tcp"]
+  weight: critical
+  risk: "Brute force, then COPY ... PROGRAM gives OS command execution. Heavily targeted by crypto-miners."
+  passive: "net:<CIDR> port:5432"
+  proof: {rung: E2, cmd: "nmap -Pn -p5432 -sV <ip>", exposed_if: "PostgreSQL responds. Auth testing is roe_gated"}
+  attack: {access: [T1110.001, T1078.001], follow_on: [T1213.006, T1496.001, T1486]}
+  soc_watch: [DET0551, DET0465, DET0242, DET0540]
+  mitigations: [M1035, M1027, M1026]
+  fix: "Restrict pg_hba.conf to known sources. Use scram-sha-256 auth. Remove superuser remote login."
+
+- id: oracle-tns
+  name: Oracle Database TNS listener
+  family: database
+  ports: ["1521/tcp", "1526/tcp"]
+  weight: critical
+  risk: "SID guessing, default accounts, TNS poisoning history."
+  passive: "net:<CIDR> port:1521"
+  proof: {rung: E2, cmd: "nmap -Pn -p1521 --script oracle-tns-version <ip>", exposed_if: "TNS version returned"}
+  attack: {access: [T1110.001, T1078.001, T1190], follow_on: [T1213.006]}
+  soc_watch: [DET0551, DET0465, DET0080, DET0242]
+  mitigations: [M1035, M1051, M1027]
+  fix: "Private network only. Use valid-node checking. Lock default accounts."
+
+- id: mongodb
+  name: MongoDB
+  family: database
+  ports: ["27017/tcp", "27018/tcp", "27019/tcp"]
+  weight: critical
+  risk: "200k+ exposed (Flare 2026). Unauthenticated instances are wiped and ransomed automatically, and many already carry ransom notes."
+  passive: "net:<CIDR> port:27017"
+  proof: {rung: E3, cmd: "nmap -Pn -p27017 --script mongodb-databases <ip>", exposed_if: "Database NAMES returned without auth = E3 (names only, never read collections). buildInfo/version alone = E2 (answered even with auth on). A database named like 'READ_ME_TO_RECOVER' = attacker evidence, force P1"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1213.006, T1485, T1486]}
+  soc_watch: [DET0080, DET0465, DET0242, DET0146, DET0215]
+  mitigations: [M1035, M1042, M1051, M1053]
+  fix: "Enable authorisation, bind to private IPs, patch, and use Atlas or a private endpoint."
+  intel: ["CVE-2025-14847 ('MongoBleed' pre-auth memory disclosure)"]
+
+- id: redis
+  name: Redis / Valkey / KeyDB
+  family: database
+  ports: ["6379/tcp", "6380/tcp", "16379/tcp"]
+  weight: critical
+  risk: "No auth by default on older builds. CONFIG SET leads to file write and RCE. Lua sandbox escapes. Prime crypto-miner target."
+  passive: "net:<CIDR> port:6379"
+  proof: {rung: E3, cmd: "nmap -Pn -p6379 --script redis-info <ip>", exposed_if: "INFO returns data without NOAUTH = unauthenticated (force P1)"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1496.001, T1098.004, T1485]}
+  soc_watch: [DET0080, DET0465, DET0540, DET0146]
+  mitigations: [M1035, M1042, M1051]
+  fix: "Turn on protected-mode, requirepass or ACLs, bind to private interfaces, rename or disable CONFIG, and patch."
+  intel: ["CVE-2025-49844 ('RediShell' Lua use-after-free RCE)"]
+
+- id: elasticsearch
+  name: Elasticsearch / OpenSearch
+  family: database
+  ports: ["9200/tcp", "9300/tcp"]
+  weight: critical
+  risk: "Historically no auth by default. Exposed clusters are the largest single source of PII leaks, and almost all exposed ones are ransomed."
+  passive: "net:<CIDR> port:9200"
+  proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<ip>:9200/; curl -s -o /dev/null -w '%{http_code}' http://<ip>:9200/", exposed_if: "200 with cluster JSON = unauthenticated. 401 = auth on (E2). 000 on http only = TLS-only listener (8.x default), use the https result"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1213.006, T1485, T1567]}
+  soc_watch: [DET0080, DET0465, DET0242, DET0146]
+  mitigations: [M1035, M1042, M1041]
+  fix: "Enable security features (auth and TLS), private networking, and snapshot to immutable storage."
+
+- id: cassandra
+  name: Apache Cassandra / ScyllaDB
+  family: database
+  ports: ["9042/tcp", "7000/tcp", "7199/tcp"]
+  weight: critical
+  risk: "AllowAllAuthenticator default. JMX on 7199 can lead to RCE."
+  passive: "net:<CIDR> port:9042"
+  proof: {rung: E2, cmd: "nmap -Pn -p9042,7199 -sV <ip>", exposed_if: "CQL native protocol and/or JMX identified. Testing for AllowAllAuthenticator (cqlsh with no credentials) is roe_gated"}
+  attack: {access: [T1078.001], follow_on: [T1213.006, T1485]}
+  soc_watch: [DET0465, DET0242, DET0146]
+  mitigations: [M1035, M1042]
+  fix: "Use PasswordAuthenticator. Close JMX. Private networking."
+
+- id: couchdb
+  name: Apache CouchDB
+  family: database
+  ports: ["5984/tcp", "6984/tcp"]
+  weight: critical
+  risk: "'Admin party' mode (no admin) on old installs gives full read/write. History of RCE."
+  passive: "net:<CIDR> port:5984"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:5984/_all_dbs", exposed_if: "200 = database names listable without auth"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1213.006, T1496.001]}
+  soc_watch: [DET0080, DET0465, DET0242, DET0540]
+  mitigations: [M1035, M1042, M1051]
+  fix: "Create an admin, require valid users, private network."
+
+- id: memcached
+  name: Memcached
+  family: database
+  ports: ["11211/tcp", "11211/udp"]
+  weight: high
+  risk: "No auth. Exposes cached sessions and tokens. UDP is a 10,000x+ DDoS amplifier."
+  passive: "net:<CIDR> port:11211"
+  proof: {rung: E3, cmd: "nmap -Pn -p11211 --script memcached-info <ip>", exposed_if: "Stats returned. UDP enabled = amplifier"}
+  attack: {access: [T1190], follow_on: [T1539, T1498.002]}
+  soc_watch: [DET0080, DET0408]
+  mitigations: [M1035, M1042, M1037]
+  fix: "Bind to localhost or private IPs, disable UDP (-U 0), and enable SASL."
+
+- id: influxdb
+  name: InfluxDB
+  family: database
+  ports: ["8086/tcp", "8088/tcp"]
+  weight: high
+  risk: "Telemetry and metrics with auth disabled. Leaks infrastructure and sometimes business data."
+  passive: "net:<CIDR> port:8086"
+  proof: {rung: E2, cmd: "curl -s -D - -o /dev/null http://<ip>:8086/ping", exposed_if: "X-Influxdb-Version header returned"}
+  attack: {access: [T1078.001], follow_on: [T1213.006]}
+  soc_watch: [DET0465, DET0242]
+  mitigations: [M1035, M1042]
+  fix: "Enable auth, private networking."
+
+- id: clickhouse
+  name: ClickHouse
+  family: database
+  ports: ["8123/tcp", "9000/tcp", "9440/tcp"]
+  weight: critical
+  risk: "Default user with no password on many deployments. Analytic stores hold log and PII lakes."
+  passive: "net:<CIDR> port:8123"
+  proof: {rung: E2, cmd: "curl -s http://<ip>:8123/ping", exposed_if: "'Ok.' returned. Testing the default user is roe_gated"}
+  attack: {access: [T1078.001], follow_on: [T1213.006, T1485]}
+  soc_watch: [DET0465, DET0242, DET0146]
+  mitigations: [M1035, M1027]
+  fix: "Set a password or disable the default user, restrict networks in users.xml, private endpoint."
+
+- id: neo4j
+  name: Neo4j / graph databases
+  family: database
+  ports: ["7474/tcp", "7473/tcp", "7687/tcp"]
+  weight: high
+  risk: "Graph stores often hold identity and relationship data. Default credentials and old auth-disabled installs are common."
+  passive: "net:<CIDR> port:7474"
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:7474/", exposed_if: "Discovery JSON or browser served"}
+  attack: {access: [T1078.001], follow_on: [T1213.006]}
+  soc_watch: [DET0465, DET0242]
+  mitigations: [M1035, M1027]
+  fix: "Require auth, private networking, change default credentials."
+
+# ───────────────────────────── message brokers & coordination ─────────────────────────────
+- id: rabbitmq
+  name: RabbitMQ (AMQP + management UI)
+  family: broker
+  ports: ["5672/tcp", "15672/tcp", "25672/tcp", "4369/tcp"]
+  weight: high
+  risk: "Management UI default credentials. The Erlang distribution port with a guessable cookie leads to RCE."
+  passive: "net:<CIDR> port:15672,4369"
+  proof: {rung: E2, cmd: "nmap -Pn -p5672,15672,4369,25672 -sV --script http-title <ip>", exposed_if: "Management UI or epmd reachable. epmd/25672 exposed = escalate"}
+  attack: {access: [T1078.001, T1190], follow_on: [T1071.005]}
+  soc_watch: [DET0465, DET0080, DET0002]
+  mitigations: [M1035, M1027, M1042]
+  fix: "Private network. Remove guest. Close epmd and distribution ports."
+
+- id: kafka
+  name: Apache Kafka
+  family: broker
+  ports: ["9092/tcp", "9093/tcp"]
+  weight: high
+  risk: "PLAINTEXT listeners with no auth. Topics carry business events and PII."
+  passive: "net:<CIDR> port:9092"
+  proof: {rung: E3, cmd: "kcat -b <ip>:9092 -L -m 5", exposed_if: "Cluster metadata and topic names returned without SASL. Do not consume messages"}
+  attack: {access: [T1078.001], follow_on: [T1213, T1565.001]}
+  soc_watch: [DET0465]
+  mitigations: [M1035, M1041, M1018]
+  fix: "Use SASL/SCRAM or mTLS with ACLs. Private listeners only."
+
+- id: mqtt
+  name: MQTT brokers
+  family: broker
+  ports: ["1883/tcp", "8883/tcp", "8083/tcp"]
+  weight: high
+  risk: "Anonymous brokers expose IoT and OT telemetry and accept commands."
+  passive: "net:<CIDR> port:1883"
+  proof: {rung: E2, cmd: "nmap -Pn -p1883,8883 -sV <ip>", exposed_if: "Broker responds. Anonymous-connect testing is roe_gated (it can subscribe to live data)"}
+  attack: {access: [T1078.001], follow_on: [T1071.005, T1565]}
+  soc_watch: [DET0465, DET0002]
+  mitigations: [M1035, M1041, M1042]
+  fix: "Set allow_anonymous false, use TLS and per-device credentials, private networking."
+
+- id: zookeeper
+  name: Apache ZooKeeper
+  family: broker
+  ports: ["2181/tcp", "2888/tcp", "3888/tcp"]
+  weight: high
+  risk: "Unauthenticated znodes hold cluster config and secrets."
+  passive: "net:<CIDR> port:2181"
+  proof: {rung: E2, cmd: "echo srvr | nc -w 3 <ip> 2181", exposed_if: "Server stats returned (four-letter words enabled)"}
+  attack: {access: [T1078.001], follow_on: [T1552.001]}
+  soc_watch: [DET0465, DET0307]
+  mitigations: [M1035, M1042]
+  fix: "Restrict 4lw.commands.whitelist, enable SASL and ACLs, private network."
+
+- id: activemq
+  name: Apache ActiveMQ (OpenWire, web console)
+  family: broker
+  ports: ["61616/tcp", "8161/tcp"]
+  weight: critical
+  risk: "OpenWire deserialisation RCE was mass-exploited for ransomware. The web console uses default admin/admin."
+  passive: "net:<CIDR> port:61616"
+  proof: {rung: E2, cmd: "nmap -Pn -p61616,8161 -sV <ip>", exposed_if: "Broker version in OpenWire banner"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1486, T1496.001]}
+  soc_watch: [DET0080, DET0465, DET0215, DET0540]
+  mitigations: [M1051, M1035]
+  fix: "Patch, private networking, change console credentials."
+  intel: ["CVE-2023-46604"]
+
+# ───────────────────────────── containers & orchestration ─────────────────────────────
+- id: docker-api
+  name: Docker Engine API
+  family: container
+  ports: ["2375/tcp", "2376/tcp"]
+  weight: critical
+  risk: "Unauthenticated 2375 = root on the host by design. Mass-exploited for crypto-mining within minutes of exposure."
+  passive: "net:<CIDR> port:2375"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:2375/version", exposed_if: "200 = unauthenticated API (force P1)"}
+  attack: {access: [T1190], follow_on: [T1610, T1611, T1059.013, T1496.001]}
+  soc_watch: [DET0080, DET0249, DET0219, DET0083, DET0540]
+  mitigations: [M1035, M1042, M1026]
+  fix: "Never bind the daemon to TCP without mTLS. Use the socket plus SSH contexts. Firewall it."
+
+- id: k8s-api
+  name: Kubernetes API server
+  family: container
+  ports: ["6443/tcp", "443/tcp", "8443/tcp", "8080/tcp"]
+  weight: high
+  risk: "Public control plane. Anonymous auth or permissive RBAC (system:anonymous bindings) gives cluster takeover. Insecure port 8080 on old clusters."
+  passive: "net:<CIDR> port:6443 \"kubernetes\""
+  proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<ip>:6443/api/v1/namespaces", exposed_if: "200 = anonymous read (force P1). 401/403 = public endpoint only (E2, still score Reach)"}
+  attack: {access: [T1190, T1078.004], follow_on: [T1609, T1610, T1613, T1552.007, T1053.007]}
+  soc_watch: [DET0080, DET0546, DET0065, DET0249, DET0490, DET0198, DET0206]
+  mitigations: [M1035, M1026, M1018, M1042]
+  fix: "Private endpoint or authorised-networks allow-list. --anonymous-auth=false. Audit ClusterRoleBindings for system:anonymous and system:unauthenticated."
+
+- id: kubelet
+  name: Kubelet API
+  family: container
+  ports: ["10250/tcp", "10255/tcp"]
+  weight: critical
+  risk: "Unauthenticated kubelet allows exec into any pod on the node. 10255 is a read-only info leak."
+  passive: "net:<CIDR> port:10250"
+  proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<ip>:10250/pods", exposed_if: "200 = unauthenticated kubelet (force P1). 401/403 = authn/authz enforced (E2, still score Reach)"}
+  attack: {access: [T1190], follow_on: [T1609, T1552.007, T1611]}
+  soc_watch: [DET0080, DET0065, DET0198, DET0219]
+  mitigations: [M1035, M1042, M1026]
+  fix: "Set anonymous-auth=false and authorization-mode=Webhook. Disable the read-only port. Keep nodes in private subnets."
+
+- id: etcd
+  name: etcd
+  family: container
+  ports: ["2379/tcp", "2380/tcp"]
+  weight: critical
+  risk: "Holds every Kubernetes Secret. Without client-cert auth, it means full cluster compromise."
+  passive: "net:<CIDR> port:2379"
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:2379/version", exposed_if: "200 over plain HTTP = no mTLS (force P1). Never read keys"}
+  attack: {access: [T1190], follow_on: [T1552.007, T1552.001]}
+  soc_watch: [DET0080, DET0198, DET0307]
+  mitigations: [M1035, M1041, M1042]
+  fix: "Require client-cert auth, use a private network, encrypt Secrets at rest."
+
+- id: container-mgmt-ui
+  name: Container / cluster management UIs (K8s Dashboard, Rancher, Portainer, Argo CD, Lens, OpenShift console)
+  family: container
+  ports: ["443/tcp", "8443/tcp", "9000/tcp", "9443/tcp", "30000-32767/tcp"]
+  weight: critical
+  risk: "One login (sometimes none: skip-login dashboards) controls workloads and secrets."
+  passive: "org:\"<ORG>\" http.title:\"Kubernetes Dashboard\",\"Portainer\",\"Rancher\",\"Argo CD\""
+  proof: {rung: E2, cmd: "nmap -Pn -p443,8443,9000,9443 --script http-title <ip>", exposed_if: "Console reachable. A skip-login option visible = escalate"}
+  attack: {access: [T1078.001, T1190], follow_on: [T1610, T1609, T1552.007]}
+  soc_watch: [DET0465, DET0080, DET0249, DET0065, DET0198]
+  mitigations: [M1035, M1032, M1026]
+  fix: "SSO with MFA behind an identity-aware proxy. Never expose via NodePort or LoadBalancer."
+
+- id: docker-registry
+  name: Self-hosted container registry (Docker Registry v2, Harbor, Nexus)
+  family: container
+  ports: ["5000/tcp", "443/tcp", "8081/tcp"]
+  weight: high
+  risk: "Anonymous pull leaks images with baked-in secrets. Anonymous push leads to supply-chain poisoning."
+  passive: "net:<CIDR> port:5000 \"Docker-Distribution-Api-Version\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:5000/v2/_catalog", exposed_if: "200 = repository names listable without auth"}
+  attack: {access: [T1190], follow_on: [T1552.001, T1525, T1195.002]}
+  soc_watch: [DET0080, DET0307, DET0334, DET0309]
+  mitigations: [M1035, M1018, M1045]
+  fix: "Require auth for pull and push. Scan images for secrets. Sign images."
+
+# ───────────────────────────── devops, observability & data platforms ─────────────────────────────
+- id: jenkins
+  name: Jenkins
+  family: devops
+  ports: ["8080/tcp", "443/tcp", "50000/tcp"]
+  weight: critical
+  risk: "Holds deployment credentials for everything. Anonymous read and the script console are common. Repeated KEVs."
+  passive: "org:\"<ORG>\" \"X-Jenkins\""
+  proof: {rung: E3, cmd: "curl -s -D - -o /dev/null http://<ip>:8080/api/json", exposed_if: "X-Jenkins header (E2). 200 on /api/json = anonymous read (E3)"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1552.001, T1072, T1195.002]}
+  soc_watch: [DET0080, DET0465, DET0307, DET0309]
+  mitigations: [M1051, M1035, M1026, M1032]
+  fix: "Use SSO, disable anonymous, restrict the script console, patch, and keep it behind VPN or ZTNA."
+  intel: ["CVE-2024-23897 (CLI arbitrary file read)"]
+
+- id: scm-self-hosted
+  name: Self-hosted SCM (GitLab, Gitea, Bitbucket DC, Gerrit)
+  family: devops
+  ports: ["443/tcp", "80/tcp", "3000/tcp", "7990/tcp", "22/tcp"]
+  weight: high
+  risk: "Public projects leak code and secrets. Open sign-up gives internal access. Account-takeover CVEs."
+  passive: "org:\"<ORG>\" http.title:\"GitLab\",\"Gitea\",\"Bitbucket\""
+  proof: {rung: E3, cmd: "curl -sk -o /dev/null -w '%{http_code}' https://<host>/explore/projects", exposed_if: "Public project listing reachable without login (metadata only)"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1213.003, T1552.001, T1195.002]}
+  soc_watch: [DET0080, DET0465, DET0307, DET0309]
+  mitigations: [M1051, M1032, M1018]
+  fix: "Disable public sign-up and public visibility by default. Enforce SSO and MFA. Patch."
+  intel: ["CVE-2023-7028 (GitLab password-reset account takeover)"]
+
+- id: sonarqube
+  name: SonarQube / code-quality servers
+  family: devops
+  ports: ["9000/tcp"]
+  weight: high
+  risk: "Force-authentication off lets anyone browse source snippets and findings."
+  passive: "net:<CIDR> port:9000 http.title:\"SonarQube\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'http://<ip>:9000/api/components/search?qualifiers=TRK&ps=1'", exposed_if: "200 = projects browsable anonymously (Force user authentication off)"}
+  attack: {access: [T1078.001], follow_on: [T1213.003, T1552.001]}
+  soc_watch: [DET0465, DET0307]
+  mitigations: [M1035, M1018]
+  fix: "Enable Force user authentication. SSO. Keep it private."
+
+- id: grafana
+  name: Grafana
+  family: observability
+  ports: ["3000/tcp"]
+  weight: high
+  risk: "Default admin/admin, anonymous org viewer, data-source credentials, and path-traversal history."
+  passive: "net:<CIDR> port:3000 http.title:\"Grafana\""
+  proof: {rung: E2, cmd: "curl -s http://<ip>:3000/api/health", exposed_if: "Health JSON with version returned"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1552.001, T1213]}
+  soc_watch: [DET0080, DET0465, DET0307]
+  mitigations: [M1051, M1035, M1027]
+  fix: "Disable anonymous auth, SSO, patch, private."
+  intel: ["CVE-2021-43798 (plugin path traversal)"]
+
+- id: kibana
+  name: Kibana / OpenSearch Dashboards
+  family: observability
+  ports: ["5601/tcp"]
+  weight: critical
+  risk: "Front end to Elasticsearch. Unauthenticated access exposes every indexed log, often including credentials and PII."
+  passive: "net:<CIDR> port:5601"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:5601/api/status", exposed_if: "200 without auth = open dashboards"}
+  attack: {access: [T1078.001, T1190], follow_on: [T1213, T1552.001]}
+  soc_watch: [DET0465, DET0080, DET0307]
+  mitigations: [M1035, M1042]
+  fix: "Enable security, SSO, private."
+
+- id: prometheus
+  name: Prometheus / exporters / Alertmanager
+  family: observability
+  ports: ["9090/tcp", "9093/tcp", "9100/tcp"]
+  weight: medium
+  risk: "No auth by design. Targets and labels map the internal network, and some configs embed credentials."
+  passive: "net:<CIDR> port:9090 http.title:\"Prometheus\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:9090/api/v1/status/buildinfo", exposed_if: "200 = open (metadata only; do not dump targets beyond a count)"}
+  attack: {access: [], follow_on: [T1590.004, T1552.001]}
+  soc_watch: [DET0307]
+  mitigations: [M1035, M1042]
+  fix: "Reverse proxy with auth, private networking."
+
+- id: hashicorp
+  name: HashiCorp control planes (Consul, Nomad, Vault)
+  family: devops
+  ports: ["8500/tcp", "8501/tcp", "4646/tcp", "8200/tcp"]
+  weight: critical
+  risk: "Consul/Nomad without ACLs allow arbitrary job or script execution. An exposed Vault UI is a high-value login surface."
+  passive: "net:<CIDR> port:8500,4646,8200"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8500/v1/agent/self; curl -s -o /dev/null -w '%{http_code}' http://<ip>:4646/v1/agent/self", exposed_if: "200 = ACLs disabled (force P1). Vault /v1/sys/health 200 = E2 only"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1651, T1555.006, T1496.001]}
+  soc_watch: [DET0080, DET0465, DET0545, DET0540]
+  mitigations: [M1035, M1026, M1042]
+  fix: "Enable ACLs with default-deny, use mTLS, keep private."
+
+- id: jupyter
+  name: Jupyter Notebook / JupyterLab / JupyterHub
+  family: data-platform
+  ports: ["8888/tcp", "8000/tcp"]
+  weight: critical
+  risk: "A token-less notebook is a browser shell with the data scientist's cloud credentials."
+  passive: "net:<CIDR> port:8888 http.title:\"Jupyter\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8888/api/kernels", exposed_if: "200 = no token/password (force P1)"}
+  attack: {access: [T1190], follow_on: [T1059.006, T1552.001, T1552.005, T1496.001]}
+  soc_watch: [DET0080, DET0307, DET0001, DET0540]
+  mitigations: [M1035, M1042, M1026]
+  fix: "Require a token or password and SSO (JupyterHub). Keep private. Use IMDSv2 and least-privilege roles."
+
+- id: big-data
+  name: Big-data schedulers (Hadoop YARN, Spark REST, Flink)
+  family: data-platform
+  ports: ["8088/tcp", "6066/tcp", "8081/tcp", "9870/tcp"]
+  weight: critical
+  risk: "Unauthenticated job submission = RCE (long-running crypto-mining campaigns). HDFS UI browses data."
+  passive: "net:<CIDR> port:8088,6066,8081"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8088/ws/v1/cluster/info", exposed_if: "200 = open ResourceManager. Never submit a job"}
+  attack: {access: [T1190], follow_on: [T1496.001, T1213]}
+  soc_watch: [DET0080, DET0540]
+  mitigations: [M1035, M1042]
+  fix: "Kerberos/SPNEGO, disable the Spark REST server, private networking."
+  intel: ["CVE-2020-17519 (Flink JobManager path traversal)"]
+
+- id: selenium-grid
+  name: Selenium Grid / headless browser farms
+  family: devops
+  ports: ["4444/tcp"]
+  weight: high
+  risk: "No auth by default. Abused to run arbitrary browser sessions and for crypto-mining or proxying."
+  passive: "net:<CIDR> port:4444 \"Selenium\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:4444/status", exposed_if: "200 with ready status"}
+  attack: {access: [T1190], follow_on: [T1496.001, T1090]}
+  soc_watch: [DET0080, DET0540]
+  mitigations: [M1035]
+  fix: "Keep private, add basic auth at a proxy."
+
+- id: db-admin-panels
+  name: Web DB admin panels (phpMyAdmin, Adminer, pgAdmin, Mongo Express)
+  family: devops
+  ports: ["80/tcp", "443/tcp", "8080/tcp", "8081/tcp", "5050/tcp"]
+  weight: high
+  risk: "Brute-forceable path to the database. Some ship with auth off (Mongo Express basic auth disabled)."
+  passive: "org:\"<ORG>\" http.title:\"phpMyAdmin\",\"Adminer\",\"pgAdmin\",\"Mongo Express\""
+  proof: {rung: E2, cmd: "nmap -Pn -p80,443,8080,8081,5050 --script http-title <ip>", exposed_if: "Panel login page reachable"}
+  attack: {access: [T1110.001, T1190], follow_on: [T1213.006]}
+  soc_watch: [DET0551, DET0080, DET0242]
+  mitigations: [M1035, M1032]
+  fix: "Remove from production, or put behind SSO/VPN."
+
+- id: debug-ports
+  name: Debug / dev servers (JDWP, Node inspector, PHP-FPM, Werkzeug debugger)
+  family: devops
+  ports: ["5005/tcp", "8000/tcp", "9229/tcp", "9000/tcp"]
+  weight: critical
+  risk: "Remote code execution by design. Usually a forgotten debug flag in production."
+  passive: "net:<CIDR> port:9229,5005"
+  proof: {rung: E2, cmd: "nmap -Pn -p5005,8000 --script jdwp-version <ip>; curl -s http://<ip>:9229/json/version", exposed_if: "JDWP handshake or inspector JSON returned (force P1; never attach)"}
+  attack: {access: [T1190], follow_on: [T1059]}
+  soc_watch: [DET0080]
+  mitigations: [M1042, M1035]
+  fix: "Remove debug flags from production builds. Bind debuggers to localhost."
+
+- id: java-rmi-jmx
+  name: Java RMI registry / JMX
+  family: devops
+  ports: ["1099/tcp", "1098/tcp", "9010/tcp", "7199/tcp"]
+  weight: high
+  risk: "Unauthenticated JMX gives MBean RCE. RMI has deserialisation gadget history."
+  passive: "net:<CIDR> port:1099"
+  proof: {rung: E2, cmd: "nmap -Pn -p1099 --script rmi-dumpregistry <ip>", exposed_if: "Registry bound names returned"}
+  attack: {access: [T1190], follow_on: [T1059]}
+  soc_watch: [DET0080]
+  mitigations: [M1042, M1035]
+  fix: "Require JMX auth and SSL, bind to localhost, block at the edge."
+
+# ───────────────────────────── AI / ML infrastructure ─────────────────────────────
+- id: ollama
+  name: Ollama
+  family: ai
+  ports: ["11434/tcp"]
+  weight: high
+  risk: "No auth by design. Free compute for attackers (LLMjacking), model theft or poisoning, path-traversal history. Tens of thousands exposed (2026)."
+  passive: "net:<CIDR> port:11434"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:11434/api/tags", exposed_if: "200 = model list without auth. Do not send prompts or pull or push models"}
+  attack: {access: [T1190], follow_on: [T1496.004, T1699, T1565.001]}
+  soc_watch: [DET0080, DET0941]
+  mitigations: [M1035, M1042, M1051]
+  fix: "Bind to 127.0.0.1 (OLLAMA_HOST). Front with an auth proxy if remote access is needed."
+  intel: ["CVE-2024-37032 ('Probllama' path traversal)"]
+
+- id: llm-inference
+  name: OpenAI-compatible inference servers (vLLM, TGI, LocalAI, LM Studio, llama.cpp server)
+  family: ai
+  ports: ["8000/tcp", "8080/tcp", "1234/tcp", "5000/tcp"]
+  weight: high
+  risk: "Unauthenticated /v1 endpoints are abused for free inference and prompt injection into downstream agents."
+  passive: "net:<CIDR> \"/v1/models\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8000/v1/models", exposed_if: "200 = models listed without an API key"}
+  attack: {access: [T1190], follow_on: [T1496.004, T1699, T1700]}
+  soc_watch: [DET0080, DET0941, DET0927]
+  mitigations: [M1035, M1042]
+  fix: "Require API keys, put an AI gateway with auth and rate limits in front, keep private."
+
+- id: ray
+  name: Ray dashboard / jobs API
+  family: ai
+  ports: ["8265/tcp", "10001/tcp", "6379/tcp"]
+  weight: critical
+  risk: "Unauthenticated job submission = RCE on GPU clusters (ShadowRay campaigns: crypto-mining, credential theft)."
+  passive: "net:<CIDR> port:8265 http.title:\"Ray Dashboard\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:8265/api/jobs/", exposed_if: "200 = jobs API open (force P1). Never submit a job"}
+  attack: {access: [T1190], follow_on: [T1059.006, T1496.001, T1552.005]}
+  soc_watch: [DET0080, DET0540, DET0001]
+  mitigations: [M1035, M1042]
+  fix: "Keep Ray private (vendor guidance: never expose the dashboard). Put an auth proxy in front."
+  intel: ["CVE-2023-48022 (ShadowRay, disputed 'by design')"]
+
+- id: mcp-server
+  name: Model Context Protocol (MCP) servers (Streamable HTTP / SSE)
+  family: ai
+  ports: ["443/tcp", "3000/tcp", "8000/tcp", "8080/tcp"]
+  weight: critical
+  risk: "The spec does not mandate auth. An exposed MCP server is an unauthenticated RPC into whatever tools it wraps (files, DBs, SaaS, shell). Censys: 12.5k to 21k+ exposed in 2026."
+  passive: "org:\"<ORG>\" \"mcp\" OR \"text/event-stream\" (validate in Censys/Netlas with their MCP fingerprints)"
+  proof: {rung: E3, cmd: "curl -s -X POST https://<host>/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"outside-in\",\"version\":\"0.1\"}}}'", exposed_if: "serverInfo returned without auth = E3. tools/list is allowed only to judge blast radius (force P1 if tools touch data or execute). Never call tools/call"}
+  attack: {access: [T1190, T1133], follow_on: [T1698, T1699, T1700, T1059]}
+  soc_watch: [DET0080, DET0354, DET0942, DET0941, DET0927]
+  mitigations: [M1035, M1018, M1026, M1038]
+  fix: "Use OAuth 2.1 per the MCP authorization spec, or keep it local (stdio). Allow-list origins and least-privilege the wrapped tools."
+
+- id: ai-app-builders
+  name: Low-code AI / agent builders (Langflow, Flowise, n8n, Dify)
+  family: ai
+  ports: ["7860/tcp", "3000/tcp", "5678/tcp", "80/tcp"]
+  weight: critical
+  risk: "Store API keys for every connected LLM and SaaS. Code-execution features and unauth RCE KEVs."
+  passive: "org:\"<ORG>\" http.title:\"Langflow\",\"Flowise\",\"n8n\",\"Dify\""
+  proof: {rung: E2, cmd: "nmap -Pn -p7860,3000,5678,80 --script http-title <ip>", exposed_if: "Builder UI reachable; check whether login is enforced"}
+  attack: {access: [T1190, T1078.001], follow_on: [T1555.006, T1552.001, T1059.006]}
+  soc_watch: [DET0080, DET0465, DET0307]
+  mitigations: [M1051, M1035, M1032]
+  fix: "Patch, SSO, keep private, move credentials to a secrets manager."
+  intel: ["CVE-2025-3248 (Langflow unauth RCE)"]
+
+- id: ml-ui
+  name: ML demo and workflow UIs (Gradio, Streamlit, ComfyUI, Open WebUI)
+  family: ai
+  ports: ["7860/tcp", "8501/tcp", "8188/tcp", "8080/tcp"]
+  weight: medium
+  risk: "Prototypes left public: compute abuse, data leakage via prompts and uploads, and custom-node RCE (ComfyUI)."
+  passive: "org:\"<ORG>\" http.title:\"Gradio\",\"Streamlit\",\"ComfyUI\",\"Open WebUI\""
+  proof: {rung: E2, cmd: "nmap -Pn -p7860,8501,8188,8080 --script http-title <ip>", exposed_if: "App UI reachable without SSO"}
+  attack: {access: [T1190], follow_on: [T1496.004, T1699]}
+  soc_watch: [DET0080, DET0941]
+  mitigations: [M1035]
+  fix: "Use an SSO proxy, time-box demos, inventory them."
+
+- id: vector-db
+  name: Vector databases (Qdrant, Weaviate, Milvus, Chroma)
+  family: ai
+  ports: ["6333/tcp", "8080/tcp", "19530/tcp", "8000/tcp"]
+  weight: critical
+  risk: "Embeddings of internal documents can be read, inverted or poisoned (RAG poisoning, then indirect prompt injection)."
+  passive: "net:<CIDR> port:6333,19530"
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' http://<ip>:6333/collections", exposed_if: "200 = collection names without API key"}
+  attack: {access: [T1190], follow_on: [T1213, T1698, T1565.001]}
+  soc_watch: [DET0080, DET0942]
+  mitigations: [M1035, M1018, M1041]
+  fix: "Require API keys or RBAC, use private networking, separate tenants."
+
+- id: mlflow
+  name: MLflow / model registries
+  family: ai
+  ports: ["5000/tcp"]
+  weight: high
+  risk: "No auth by default. Models, artefacts, and cloud storage credentials in run params. LFI history."
+  passive: "net:<CIDR> port:5000 http.title:\"MLflow\""
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"max_results\":1}' http://<ip>:5000/api/2.0/mlflow/experiments/search", exposed_if: "200 without auth = open tracking server"}
+  attack: {access: [T1190], follow_on: [T1552.001, T1195.002]}
+  soc_watch: [DET0080, DET0307, DET0309]
+  mitigations: [M1035, M1051]
+  fix: "Enable basic-auth or an SSO proxy, patch, keep private."
+  intel: ["CVE-2023-1177 (MLflow path traversal)"]
+
+# ───────────────────────────── amplification & legacy network services ─────────────────────────────
+- id: dns-open-resolver
+  name: Open DNS resolver
+  family: network-service
+  ports: ["53/udp", "53/tcp"]
+  weight: medium
+  risk: "Reflection and amplification source. Cache-poisoning target. Sometimes leaks internal zones."
+  passive: "net:<CIDR> port:53 \"Recursion: enabled\""
+  proof: {rung: E3, cmd: "nmap -Pn -sU -p53 --script dns-recursion <ip>", exposed_if: "Recursion enabled for external clients"}
+  attack: {access: [], follow_on: [T1498.002]}
+  soc_watch: [DET0408]
+  mitigations: [M1037, M1042]
+  fix: "Disable recursion for external clients. Use response-rate limiting."
+
+- id: ntp
+  name: NTP with mode 6/7 (monlist)
+  family: network-service
+  ports: ["123/udp"]
+  weight: medium
+  risk: "monlist amplification. Leaks recent client IPs."
+  passive: "net:<CIDR> port:123"
+  proof: {rung: E3, cmd: "nmap -Pn -sU -p123 --script ntp-info,ntp-monlist <ip>", exposed_if: "monlist returns entries"}
+  attack: {access: [], follow_on: [T1498.002]}
+  soc_watch: [DET0408]
+  mitigations: [M1042, M1037]
+  fix: "Use 'restrict default noquery' and patch."
+  intel: ["CVE-2013-5211"]
+
+- id: ssdp-upnp
+  name: SSDP / UPnP
+  family: network-service
+  ports: ["1900/udp", "5000/tcp", "49152/tcp"]
+  weight: medium
+  risk: "Amplification source. UPnP IGD can open further ports on demand, which manufactures new exposures."
+  passive: "net:<CIDR> port:1900"
+  proof: {rung: E3, cmd: "nmap -Pn -sU -p1900 --script upnp-info <ip>", exposed_if: "Device description returned"}
+  attack: {access: [], follow_on: [T1498.002, T1686.002]}
+  soc_watch: [DET0408]
+  mitigations: [M1042, M1037]
+  fix: "Disable UPnP on WAN interfaces."
+
+# ───────────────────────────── voice, print, camera ─────────────────────────────
+- id: sip
+  name: SIP / VoIP PBX
+  family: iot
+  ports: ["5060/udp", "5060/tcp", "5061/tcp"]
+  weight: medium
+  risk: "Extension brute force leads to toll fraud. PBX web UIs carry RCE history."
+  passive: "net:<CIDR> port:5060"
+  proof: {rung: E2, cmd: "nmap -Pn -sU -p5060 --script sip-methods <ip>", exposed_if: "SIP OPTIONS answered with a user-agent"}
+  attack: {access: [T1110.001], follow_on: [T1496]}
+  soc_watch: [DET0551]
+  mitigations: [M1035, M1027]
+  fix: "Use SBC allow-lists and fail2ban, restrict to the carrier IPs."
+
+- id: printers
+  name: Network printers (IPP, JetDirect/RAW, LPD)
+  family: iot
+  ports: ["631/tcp", "9100/tcp", "515/tcp"]
+  weight: medium
+  risk: "Print-job injection, stored documents, credential capture via LDAP/SMB settings, and CUPS RCE history."
+  passive: "net:<CIDR> port:631,9100"
+  proof: {rung: E2, cmd: "nmap -Pn -p631,9100,515 -sV <ip>", exposed_if: "Printer service identified"}
+  attack: {access: [T1190], follow_on: [T1552.001]}
+  soc_watch: [DET0080]
+  mitigations: [M1035, M1042]
+  fix: "Never expose. Disable cups-browsed on servers."
+
+- id: cameras
+  name: IP cameras / NVR / DVR (RTSP, vendor web)
+  family: iot
+  ports: ["554/tcp", "8554/tcp", "37777/tcp", "8000/tcp", "80/tcp"]
+  weight: high
+  risk: "Physical-security and privacy exposure. Botnet recruitment. Pivot into the corporate LAN."
+  passive: "net:<CIDR> port:554,37777"
+  proof: {rung: E2, cmd: "nmap -Pn -p554,8554 --script rtsp-methods <ip>", exposed_if: "RTSP answers. Do not attempt to view streams"}
+  attack: {access: [T1078.001, T1190], follow_on: [T1125, T1584.005]}
+  soc_watch: [DET0465, DET0080]
+  mitigations: [M1035, M1027, M1051]
+  fix: "Isolate on a VLAN with no inbound path. Use a vendor cloud relay or VPN. Change defaults."
+
+# ───────────────────────────── OT / ICS (passive + owner-confirmed only) ─────────────────────────────
+# Active probing of OT can disrupt processes. Default for this family: E0 (scan DB) + E4 (OT owner confirms).
+# Also map with ATT&CK for ICS: T0883 Internet Accessible Device, T0886 Remote Services, T0822 External Remote Services.
+- id: ics-fieldbus
+  name: Industrial protocols (Modbus/TCP, DNP3, IEC 60870-5-104, EtherNet/IP)
+  family: ot-ics
+  ports: ["502/tcp", "20000/tcp", "2404/tcp", "44818/tcp"]
+  weight: critical
+  risk: "No authentication in the protocol. Direct read/write of process values."
+  passive: "net:<CIDR> port:502,20000,2404,44818"
+  proof: {rung: E0, roe_gated: true, cmd: "OT owner confirms. Only with OT approval: nmap -Pn -p502 --script modbus-discover <ip>", exposed_if: "Scan DB shows a protocol response from our space"}
+  attack: {access: [T1190, T1133], follow_on: [T1565]}
+  soc_watch: [DET0080, DET0354]
+  mitigations: [M1035, M1030, M1037]
+  fix: "Remove all direct internet paths. Use an industrial DMZ, a secure remote-access broker, and unidirectional gateways where possible."
+
+- id: ics-vendor
+  name: PLC / building-management vendor protocols (Siemens S7, Niagara Fox, BACnet, OPC UA)
+  family: ot-ics
+  ports: ["102/tcp", "1911/tcp", "4911/tcp", "47808/udp", "4840/tcp"]
+  weight: critical
+  risk: "PLC and BMS identity leaks (model, firmware, project names) and direct control of building or plant systems."
+  passive: "net:<CIDR> port:102,1911,47808,4840"
+  proof: {rung: E0, roe_gated: true, cmd: "OT owner confirms. Only with OT approval: nmap -Pn -p102 --script s7-info <ip> / -sU -p47808 --script bacnet-info", exposed_if: "Scan DB shows a device banner from our space"}
+  attack: {access: [T1190, T1133], follow_on: [T1565]}
+  soc_watch: [DET0080, DET0354]
+  mitigations: [M1035, M1030]
+  fix: "Same as ics-fieldbus. BMS vendors often install remote access, so audit contracts and the vendor's remote-access path."
