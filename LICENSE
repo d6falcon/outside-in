@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-Third-party content: catalog/attack-enterprise.tsv and ATT&CK identifiers/names are
-(c) The MITRE Corporation and are used under the ATT&CK Terms of Use
-(https://attack.mitre.org/resources/legal-and-branding/terms-of-use/), not this license.

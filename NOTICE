@@ -1,0 +1,19 @@
+outside-in
+Copyright (c) 2026 d6falcon. Licensed under the MIT License (see LICENSE).
+
+Third-party content
+-------------------
+
+MITRE ATT&CK
+  catalog/attack-enterprise.tsv and the ATT&CK technique, tactic, detection-strategy and mitigation identifiers and
+  names used throughout this repository are (c) The MITRE Corporation. They are reproduced and derived under the
+  ATT&CK Terms of Use (https://attack.mitre.org/resources/legal-and-branding/terms-of-use/), not under the MIT License.
+  MITRE ATT&CK(R) is a registered trademark of The MITRE Corporation.
+
+Industry reports
+  Figures quoted in README.md, RESEARCH.md and runbooks/ (including Google Cloud's Cloud Threat Horizons Report
+  H1 2026) remain the property of their publishers and are quoted with attribution.
+
+Prior art
+  The idea of packaging security methodology as assistant skills was inspired by elementalsouls/Claude-OSINT
+  (MIT code / CC BY 4.0 content). No text, data or code from that project is included. See CREDITS.md.

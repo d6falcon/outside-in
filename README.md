@@ -96,7 +96,7 @@ outside-in/
 ├── scripts/Update-AttackMapping.ps1        # regenerate the ATT&CK table from MITRE STIX and validate every cited ID
 ├── RESEARCH.md                             # problem validation with 2026 sources
 ├── RUNBOOKS-BACKLOG.md                     # next runbooks, ranked by Threat Horizons weight
-└── CREDITS.md · CHANGELOG.md · LICENSE
+└── CREDITS.md · CHANGELOG.md · LICENSE (MIT) · NOTICE (third-party terms)
 ```
 
 ### Skills
@@ -180,4 +180,4 @@ the [ATT&CK Terms of Use](https://attack.mitre.org/resources/legal-and-branding/
 
 ## License
 
-[MIT](LICENSE) © 2026 d6falcon
+[MIT](LICENSE) © 2026 d6falcon. Third-party content (MITRE ATT&CK data, quoted reports) is covered in [NOTICE](NOTICE).
