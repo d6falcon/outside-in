@@ -1,110 +1,49 @@
 # Changelog
 
-## 0.4.0 (2026-11-14)
+## 0.4.1 (2026-11-16): second technical review and readability pass
 
-**EDR coverage gaps on exposed hosts.**
+| Area | Change |
+|---|---|
+| Second independent review | 21 findings, all fixed. Removed `--max-results` from RB-02 CloudTrail lookups (it silently cut results to one page); Azure Blob query now uses single quotes (backticks broke bash and PowerShell); PostgreSQL firewall flag `-s`; GCS IAM changes logged as `storage.setIamPermissions`; anonymous `allUsers` reads are never in Cloud Audit Logs; org-wide public-access-prevention caution (breaks intentionally public buckets); UBLA warning; `inherited` explained; first key name instead of an object count the probe can't give; quarantine SG and NSG now really deny (default egress and VNet rules removed); IPv6 in RB-01; GKE DNS endpoint; WinRM probe sends a body; install creates folders first |
+| EDR rules | `agent_expected` is a class default with per-asset override; `unknown` scored as missing everywhere; `lift-no-edr` doesn't stack with `lift-unmanaged`; an agent is never an exception's compensating control |
+| Readability | Lists turned into tables across the methodology, skills, runbooks README, RESEARCH (including sources) and this changelog; ADR index table |
 
-- Every catalog class now carries `agent_expected`: 65 of 86 service classes and 3 of 43 cloud classes, where the
-  exposure sits on a host or container node that should run EDR.
-- Finding schema: new `asset.controls.edr` (`healthy` / `stale` / `missing` / `not-applicable` / `unknown`), plus
-  last-seen and source fields, and a new override `lift-no-edr`.
-- Methodology: a missing or stale agent on an `agent_expected` class lifts the finding one band. Endpoint-dependent
-  DETs become `detection_gaps`. A healthy agent never lowers the band. Assets are joined on resource ID and hostname,
-  never public IP.
-- Triage skill Step 2b, an exec-brief "endpoint coverage" line, an operating-model metric, and ADR-009.
-- Examples updated: the RDP finding shows a stale agent; the GCS bucket is `not-applicable`.
-- Docs: a worked example `docs/examples/gcs-public-bucket.md`, `docs/install.md`, and a 60-second README.
+## 0.4.0 (2026-11-14): EDR coverage gaps on exposed hosts
 
-## 0.3.0 (2026-11-14)
+| Area | Change |
+|---|---|
+| Catalogs | Every class carries `agent_expected`: 65 of 86 service classes and 3 of 43 cloud classes expect an EDR agent |
+| Schema | New `asset.controls.edr` (`healthy` / `stale` / `missing` / `not-applicable` / `unknown`), last-seen and source fields; new override `lift-no-edr` |
+| Methodology | A missing or stale agent on an `agent_expected` class lifts one band. Endpoint DETs become `detection_gaps`. A healthy agent never lowers the band. Join on resource ID and hostname, never public IP |
+| Skills and docs | Triage Step 2b, exec-brief "endpoint coverage" line, operating-model metric, ADR-009 |
+| Examples | RDP finding shows a stale agent; GCS bucket is `not-applicable`. New worked example `docs/examples/gcs-public-bucket.md`, `docs/install.md`, 60-second README |
 
-Release-readiness pass for publication at `github.com/d6falcon/outside-in`.
+## 0.3.0 (2026-11-14): release readiness
 
-- **CTEM alignment.** The loop is now *Scope → Discover → Attribute → Validate → Prioritise → Mobilise →
-  Verify-closed*, with a note on why validation precedes prioritisation in an EASM-led loop.
-- **Mobilisation model.** Findings are mobilised as **remediation campaigns** with ITSM tickets, SLAs and an
-  exception path that requires a Reach-reducing compensating control. Adds `templates/remediation-campaign.md`, plus
-  `campaign_id` and `exception` fields in the finding schema.
-- **Prioritisation-engine integration.** EPS now explicitly runs alongside an existing prioritisation engine and feeds
-  it Reach, attribution and evidence rung.
-- **New docs:** `docs/operating-model.md` (data sources, RACI, cadence, programme metrics, vendor-neutral) and
-  `docs/architecture-decisions.md` (ADR-001 … ADR-008).
-- **Fixes:**
-  - The methodology referred to `class_weight`; the catalog field is `weight`.
-  - Verify-closed status names now match the schema enum (`reopened-relocated`, `open-fix-not-effective`).
-  - The "lift one band on regression" override is now documented in the methodology, matching the schema and the
-    triage skill.
-  - RB-02's PAT guardrail was in the wrong column.
-- **Validator.** `scripts/Update-AttackSubset.ps1` is renamed to `scripts/Update-AttackMapping.ps1`. It now:
-  - runs on Windows PowerShell 5.1 and PowerShell 7+;
-  - adds **check 2**: every DET in each catalog entry and runbook must detect a technique cited alongside it
-    (negative-tested).
-- **Independent technical review (35 findings), all addressed:**
-  - **RB-02:** IAM/STS events are now queried in `us-east-1` (they are global and missed in other regions). The GCP
-    log query no longer relies on `--organization` (which skips child projects) and uses substring `methodName`
-    matching.
-  - **RB-01:**
-    - ASG evidence preservation detaches the single instance instead of suspending group-wide processes.
-    - The NACL deny is scoped to a /32.
-    - Added a warning that NetworkPolicies are additive.
-    - `kubectl` LoadBalancer listing now uses portable jsonpath.
-  - **Service probes corrected:**
-    - MongoDB (`mongodb-databases`; buildInfo alone is only E2).
-    - SonarQube (`/api/components/search`).
-    - SNMP (`snmp-sysdescr` for the RoE-gated community test).
-    - Cassandra (`-sV`; `cassandra-info` is Thrift-only).
-    - Elasticsearch 8.x TLS.
-    - kubelet 403.
-    - MLflow POST.
-    - WinRM `/wsman`.
-  - **Cloud checks corrected:**
-    - Azure Blob and GCS: a 404/403 on list no longer reads as "not public".
-    - Null `allowBlobPublicAccess`.
-    - Cloud Run Google-front-end 404 vs app response.
-    - GCP image-level sharing and the right guardrail.
-    - Firebase regional URLs.
-    - IPv6 and `sourceAddressPrefixes` in firewall checks.
-    - PostgreSQL/MySQL flexible-server firewall checks.
-    - RDS stranger command per region.
-    - The GitHub OIDC `sub` needs its `repo:` prefix.
-    - App Service and GKE guardrail names.
-    - Storage-key rotation now warns which key, and who breaks.
-  - **Consistency:**
-    - Skill output examples now validate against the finding schema.
-    - Worked example `svc-rdp` → `rdp`.
-    - RB-02 RACI section reference.
-    - Complete SOC-watch headers in both runbooks.
-    - Explicit A3 existence-check carve-out in the rules of engagement.
-    - UDP list wording.
-- **Regions.** Concrete examples use London regions (AWS `eu-west-2`, Google Cloud `europe-west2`, Azure `uksouth`).
-  Provider-fixed global endpoints are unchanged.
-- Authorship set to d6falcon (LICENSE, schema `$id`, README). The README has been rewritten for a technical audience.
+| Area | Change |
+|---|---|
+| CTEM alignment | Loop is now Scope → Discover → Attribute → Validate → Prioritise → Mobilise → Verify-closed |
+| Mobilisation | Remediation campaigns with ITSM tickets, SLAs and exceptions (Reach-reducing compensating control required). New campaign template; `campaign_id` and `exception` in the schema |
+| Prioritisation engine | EPS runs alongside it and feeds it Reach, attribution and evidence rung |
+| New docs | `docs/operating-model.md` (data sources, RACI, cadence, metrics) and `docs/architecture-decisions.md` |
+| Validator | Renamed to `scripts/Update-AttackMapping.ps1`; runs on PowerShell 5.1 and 7+; adds check 2 (each DET detects a technique cited alongside it), negative-tested |
+| Independent review | 35 findings, all fixed. IAM events queried in `us-east-1`; GCP log scope fixed; ASG detach instead of group-wide suspend; NACL /32; NetworkPolicy caveat; probes corrected for MongoDB, SonarQube, SNMP, Cassandra, Elasticsearch 8.x, kubelet, MLflow, WinRM; Blob/GCS 404 and 403 no longer read as "not public"; Cloud Run 404s; GCP image sharing; Firebase regional URLs; IPv6 firewall rules; flexible-server firewalls; OIDC `repo:` prefix; guardrail names; storage-key rotation warning |
+| Consistency | Skill examples validate against the schema; status and field names aligned; complete SOC-watch headers; A3 existence-check carve-out |
+| Regions and authorship | London region examples; author d6falcon (LICENSE, schema `$id`, README) |
 
-## 0.2.0 — 2026-11-14
+## 0.2.0 (2026-11-14): runbooks
 
-- **Runbooks anchored on Google Cloud Threat Horizons H1 2026** (read from the primary PDF), cut down to its top two
-  initial-access vectors:
-  - `runbooks/RB-01-exploited-internet-facing-software.md`: software-based entry (44.5%). Four trigger modes,
-    the report's < 24h virtual-patch / < 72h full-patch clock, preserve-before-touch (auto-scaling and self-healing
-    awareness), compromise-assessment hunts a–j, and cloud and Kubernetes command appendix.
-  - `runbooks/RB-02-weak-leaked-stolen-credentials.md`: weak or absent credentials (27.2%) and the identity theme
-    (83%). Four scenarios (weak login, leaked secret, federation/OAuth abuse, human takeover), attribute-without-use,
-    reversible containment per credential type, an exposure-time hunt mapped to the attacker sequence, and guardrails
-    mapped to the report's recommendations.
-- RB-S02 and RB-C04 are marked as superseded in `RUNBOOKS-BACKLOG.md`. The build order is re-ranked by Threat Horizons weight.
-- `RESEARCH.md` and `README.md` now quote the primary Threat Horizons figures. Previously these were secondary summaries.
-- `scripts/Update-AttackMapping.ps1` now also validates `runbooks/`, and all IDs are active in v20.1. The rule that
-  each DET maps to a technique in the same runbook was checked manually here and automated in 0.3.0.
+| Area | Change |
+|---|---|
+| RB-01 | Exploited internet-facing software (Threat Horizons #1, 44.5%): four trigger modes, < 24h virtual patch / < 72h full patch, preserve-before-touch, hunts a–j, command appendix |
+| RB-02 | Weak, leaked or stolen credentials (#2, 27.2%; identity 83%): four scenarios, attribute-without-use, reversible containment, exposure-time hunt, guardrails |
+| Backlog and research | RB-S02 and RB-C04 superseded; build order re-ranked by Threat Horizons weight; primary report figures quoted |
 
-## 0.1.0 — 2026-11-12
+## 0.1.0 (2026-11-12): initial draft
 
-Initial draft.
-
-- Skills: `exposed-services`, `exposed-cloud-assets`, `exposure-triage`.
-- Catalogs: `services.yaml` (86 service exposure classes), `cloud-assets.yaml` (43 cloud exposure classes), both
-  mapped to MITRE ATT&CK Enterprise **v20.1** techniques, Detection Strategies and Mitigations.
-- `catalog/attack-enterprise.tsv` generated from MITRE STIX `enterprise-attack-20.1.json`, with every referenced ID
-  verified active.
-- Methodology: exposure loop, rules of engagement, attribution A1–A3, evidence ladder E0–E4, EPS scoring and
-  verify-closed.
-- Finding JSON schema, owner-ticket and exec-brief templates.
-- `RESEARCH.md` (problem validation with 2026 sources) and `RUNBOOKS-BACKLOG.md` (36 proposed runbooks, not yet written).
+| Area | Change |
+|---|---|
+| Skills | `exposed-services`, `exposed-cloud-assets`, `exposure-triage` |
+| Catalogs | 86 service and 43 cloud exposure classes mapped to MITRE ATT&CK Enterprise v20.1; `attack-enterprise.tsv` generated from MITRE STIX |
+| Method | Exposure loop, rules of engagement, attribution A1–A3, evidence ladder E0–E4, EPS, verify-closed |
+| Other | Finding schema, ticket and exec-brief templates, `RESEARCH.md`, `RUNBOOKS-BACKLOG.md` |

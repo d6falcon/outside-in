@@ -11,10 +11,10 @@ description: CTEM prioritisation and mobilisation for external exposure findings
 
 ## Inputs accepted
 
-- `outside-in` findings (YAML or JSON per `schemas/finding.schema.json`).
-- Raw exports such as Shodan/Censys JSON, Shadowserver CSV reports, nmap XML, CSPM findings (Security Hub ASFF,
-  Defender for Cloud, SCC) and ASM tool exports. **Normalise first:** map each row to a `catalog_id`. If no catalog
-  entry fits, use `catalog_id: uncatalogued` and propose a new entry at the end.
+| Input | Handling |
+|---|---|
+| `outside-in` findings | YAML or JSON per `schemas/finding.schema.json` |
+| Raw exports (Shodan/Censys JSON, Shadowserver CSV, nmap XML, CSPM findings such as Security Hub ASFF, Defender for Cloud, SCC, EASM exports) | **Normalise first:** map each row to a `catalog_id`. If nothing fits, use `uncatalogued` and propose a new catalog entry |
 
 ## Step 1: normalise and de-duplicate
 
@@ -40,26 +40,29 @@ deployer (CloudTrail, Activity Log, Audit Logs).
 
 ### Step 2b: control coverage (EDR)
 
-For every finding whose catalog class has `agent_expected: true`, join the asset to the EDR console export (or the
-CMDB or CNAPP agent inventory) on **instance or resource ID and hostname, never public IP alone**. Set
-`asset.controls.edr` to `healthy`, `stale` (no check-in for more than 7 days, or reduced functionality), `missing` or
-`unknown`. For `agent_expected: false` classes, set `not-applicable` and move on.
+Start from the class default (`agent_expected`), then correct it for the real asset: set `not-applicable` if the asset
+turns out to be an appliance or managed service (RDS behind a `mysql` finding, a managed Kubernetes endpoint behind
+`k8s-api`); evaluate EDR if a `false` class sits on a general-purpose OS. `uncatalogued` hosts default to `unknown`.
+Join expected assets to the EDR console export (or the CMDB or CNAPP agent inventory) on **resource ID and hostname,
+never public IP alone**.
 
-- `missing` / `stale` / `unknown`: apply the `lift-no-edr` override in Step 4, and copy the endpoint-dependent
-  `soc_watch` DETs into `detection_gaps`.
-- `healthy`: no change to the band. EDR never lowers priority.
-- In the ticket, offer "deploy or repair the agent" as the **interim** step, never as the fix.
+| `asset.controls.edr` | Action |
+|---|---|
+| `missing` / `stale` / `unknown` | Apply `lift-no-edr` in Step 4 (not stacked with `lift-unmanaged`). Copy endpoint-dependent `soc_watch` DETs into `detection_gaps` |
+| `healthy` | No change. EDR never lowers priority |
+| `not-applicable` | No change. Record why in `edr_source` if you overrode the class default |
+
+In the ticket, offer "deploy or repair the agent" as the **interim** step. It is never the fix, and never the
+compensating control for an exception.
 
 ## Step 3: threat context (live, never from memory)
 
-For every product and version identified:
-
-1. **CISA KEV:** is any CVE listed? Record `dateAdded` and `knownRansomwareCampaignUse`.
-2. **EPSS:** the current probability for each candidate CVE. Keep the max.
-3. **Active exploitation signals:** vendor PSIRT "exploited in the wild", CISA/NCSC advisories, honeypot or
-   mass-scan telemetry.
-4. **Attacker evidence on the asset itself** (ransom notes, unknown accounts, miners) triggers the **incident
-   override**: force P1 and notify IR now. Do not wait for scoring.
+| Check | Record |
+|---|---|
+| **CISA KEV** | Any listed CVE for the product and version: `dateAdded`, `knownRansomwareCampaignUse` |
+| **EPSS** | Current probability per candidate CVE; keep the max |
+| **Active exploitation** | Vendor PSIRT "exploited in the wild", CISA/NCSC advisories, honeypot or mass-scan telemetry |
+| **Attacker evidence on the asset** | Ransom notes, unknown accounts, miners: **incident override**, force P1 and notify IR now, without waiting for scoring |
 
 ## Step 4: EPS scoring
 
@@ -100,14 +103,15 @@ an expiry date and an accountable approver. Re-score EPS with that control in pl
 
 ## Step 6: executive brief
 
-Fill in `templates/exec-brief.md`. Keep it to one page:
+Fill in `templates/exec-brief.md`. One page:
 
-- Counts by band, plus a trend against the last cycle (new / closed / regressed).
-- **Top 5 roll-ups** by EPS, each with one sentence of business impact.
-- **Classes without a guardrail** (e.g. "public snapshots possible in 31 of 40 accounts").
-- **Ownership gaps**, **detection gaps** and **endpoint coverage** (% of exposed hosts that should run EDR and have
-  a healthy agent).
-- The time-to-close median for P1/P2 this cycle.
+| Section | Content |
+|---|---|
+| Where we stand | Counts by band, trend against last cycle (new / closed / regressed) |
+| Top 5 | Roll-ups by EPS, one sentence of business impact each |
+| Missing guardrails | e.g. "public snapshots possible in 31 of 40 accounts" |
+| Gaps | Ownership, detection, and endpoint coverage (% of exposed hosts that should run EDR and have a healthy agent) |
+| Pace | Median time to close for P1 and P2 this cycle |
 
 Avoid dollar-loss figures unless the organisation has its own loss model. EPS is a prioritisation tool, not a risk
 quantification.

@@ -19,45 +19,25 @@ Rules of engagement, attribution, the evidence ladder and EPS are in `docs/metho
 
 ## 0. Scope
 
-Confirm:
-
-- **Cloud estate:** AWS account IDs and Organisations, Azure tenant and subscriptions, GCP org and projects, plus any
-  "other" providers (DigitalOcean, OCI, Cloudflare, Alibaba, Supabase, Firebase, Vercel, Netlify…).
-- **Brand tokens:** company, product and project names used in resource naming. These feed name-based discovery.
-- **Mode:** `passive` (OSINT plus metadata-only probes) or `active` (authorised status-code probes). The **inside-out**
-  steps are always run by, or with, the owner's read-only credentials. Never use credentials you discovered.
-- **A "stranger" account:** a cloud account you control that is **outside** the org, used to see what the world sees
-  (public snapshots and images) without touching target data. It is optional but powerful.
+| Confirm | Detail |
+|---|---|
+| **Cloud estate** | AWS accounts and Organizations, Azure tenant and subscriptions, GCP org and projects, plus "other" providers (DigitalOcean, OCI, Cloudflare, Supabase, Firebase, Vercel, Netlify…) |
+| **Brand tokens** | Company, product and project names used in resource naming. They drive name-based discovery |
+| **Mode** | `passive` (OSINT + metadata-only probes) or `active` (authorised status-code probes). Inside-out steps always use the owner's read-only credentials, never discovered ones |
+| **Stranger account** (optional) | A cloud account you control *outside* the org, to see what the world sees (public snapshots and images) without touching target data |
 
 ## 1. Discover
 
 Work from three directions and merge the results.
 
-### 1a. From names (OSINT)
-
-- Collect resource names the org already leaks: CNAME targets, CSP and CORS headers, JS bundles, mobile app configs,
-  IaC in public repos, Postman collections, documentation, job posts.
-- Provider host patterns to grep for: `*.s3*.amazonaws.com`, `*.blob.core.windows.net`, `storage.googleapis.com`,
-  `*.firebaseio.com`, `*.supabase.co`, `*.lambda-url.*.on.aws`, `*.execute-api.*.amazonaws.com`, `*.azurewebsites.net`,
-  `*.run.app`, `*.eks.amazonaws.com`, `*.azmk8s.io`, `*.r2.dev`, `*.digitaloceanspaces.com`,
-  `objectstorage.*.oraclecloud.com`.
-- **Bounded** name permutations of brand tokens (e.g. `<brand>-{backup,logs,prod,dev,static,assets,data}`) for
-  **existence-only** checks. Keep the list small and explainable. A permutation hit is **A3 until proven otherwise**:
-  similar names are often owned by strangers.
-
-### 1b. From the outside view of owned assets
-
-- `exposed-services` findings on IPs inside cloud ranges become cloud findings too (`cloud-fw-open-admin`,
-  `aws-rds-public`, `unexpected-public-ip`).
-- DNS zone walk (an inside-out export is best): resolve every CNAME and A record and match the targets against cloud
-  patterns. This feeds `dangling-dns-cloud` and `dangling-a-record-cloud-ip`.
-
-### 1c. From identities and secrets
-
-- Org code, packages, images, CI logs, Postman, paste sites: search for key formats (AKIA/ASIA, Azure client secrets,
-  `"type": "service_account"`, SAS `sig=`, LLM provider keys).
-- **Attribute leaked AWS keys without using them:** `aws sts get-access-key-info --access-key-id <AKIA…>` run with
-  **your own** audit credentials returns the owning account ID.
+| Direction | Where to look | Feeds |
+|---|---|---|
+| **From names** (OSINT) | Resource names the org already leaks: CNAME targets, CSP/CORS headers, JS bundles, mobile app configs, public IaC, Postman, docs, job posts. Grep for `*.s3*.amazonaws.com`, `*.blob.core.windows.net`, `storage.googleapis.com`, `*.firebaseio.com`, `*.supabase.co`, `*.lambda-url.*.on.aws`, `*.execute-api.*.amazonaws.com`, `*.azurewebsites.net`, `*.run.app`, `*.eks.amazonaws.com`, `*.azmk8s.io`, `*.r2.dev`, `*.digitaloceanspaces.com`, `objectstorage.*.oraclecloud.com` | Storage, serverless, K8s classes |
+| | A small, explainable set of brand permutations (`<brand>-{backup,logs,prod,dev,static,assets,data}`), **existence-only**. A hit is **A3 until proven otherwise**, because lookalike names often belong to strangers | Attribution queue |
+| **From owned assets** | `exposed-services` findings on IPs inside cloud ranges | `cloud-fw-open-admin`, `aws-rds-public`, `unexpected-public-ip` |
+| | DNS zone walk (inside-out export is best): resolve every CNAME and A record and match targets to cloud patterns | `dangling-dns-cloud`, `dangling-a-record-cloud-ip` |
+| **From identities and secrets** | Org code, packages, images, CI logs, Postman, paste sites: AKIA/ASIA keys, Azure client secrets, `"type": "service_account"`, SAS `sig=`, LLM keys | `leaked-cloud-credentials`, `llm-api-keys` |
+| | Attribute a leaked AWS key **without using it**: `aws sts get-access-key-info --access-key-id <AKIA…>` with *your own* audit credentials returns the owning account | Attribution |
 
 ## 2. Attribute
 
@@ -71,14 +51,13 @@ Cloud names are global and squat-able. Attribute before you probe:
 
 ## 3. Validate: outside-in, least touch
 
-- Run the catalog entry's `proof.cmd`. For storage this is a **listing call capped at one key** that records the
-  status code and key names or count only. **Never download objects.**
-- For snapshots and images, prefer the `stranger` command. It proves public sharing from a neutral account without
-  touching the data.
-- For leaked secrets, **parse offline** (SAS expiry and permissions, key type, account ID). Never call an API with them.
-- For publishable identifiers (Firebase apiKey, Supabase anon key, Cognito pool ID), use them only the way the public
-  app does, and only for metadata (`?shallow=true`, `Prefer: count=exact` with `Range: 0-0`).
-- Write tests (PUT, upload) are **never** used. Write exposure is proven inside-out from the policy or ACL.
+| Asset type | How to validate | Never |
+|---|---|---|
+| Storage | The entry's `proof.cmd`: a listing call capped at one key. Record the status code and key names or count | Download objects |
+| Snapshots and images | The `stranger` command, from a neutral account | Copy, restore or launch |
+| Leaked secrets | Parse offline: SAS expiry and permissions, key type, account ID | Call any API with them |
+| Publishable IDs (Firebase apiKey, Supabase anon key, Cognito pool ID) | Use them only as the public app does, metadata only (`?shallow=true`, `Prefer: count=exact` + `Range: 0-0`) | Page through data |
+| Write exposure | Prove it inside-out from the policy or ACL | PUT or upload to "test" |
 
 ## 4. Confirm inside-out (E4)
 
@@ -102,23 +81,24 @@ GCP org policy) rather than per account.
 
 Copy `attack`, `soc_watch` and `mitigations` from the entry. Cloud specifics worth calling out to the SOC:
 
-- **Leaked credentials:** watch DET0546 (cloud account abuse), DET0531 (additional cloud credentials), DET0319
-  (cloud account creation), DET0147 (cloud service hijacking / LLMjacking) and T1535 (unused regions) on the
-  affected account **from the leak date**, not just from today.
-- **Public snapshots and images:** DET0573 (transfer to cloud account). If the asset was public for any period,
-  treat its secrets as compromised regardless of whether access logs show a copy.
-- **Firewall drift:** DET0424 (cloud firewall modification) catches attackers *re-opening* what you closed.
+| Situation | Tell the SOC to watch | Note |
+|---|---|---|
+| Leaked credentials | DET0546 cloud account abuse · DET0531 added cloud credentials · DET0319 new cloud accounts · DET0147 cloud service hijacking (LLMjacking) · activity in unused regions (T1535) | Look back **from the leak date**, not from today |
+| Public snapshots or images | DET0573 transfer to another cloud account | If it was ever public, treat its secrets as compromised, logs or no logs |
+| Firewall drift | DET0424 cloud firewall modification | Catches attackers *re-opening* what you closed |
 
 Then pass the findings to **exposure-triage**.
 
 ## 7. Incident triggers: stop and escalate
 
-Stop and escalate to IR (force P1) if you see any of:
+Stop probing and escalate to IR (force P1) on any of these:
 
-- ransom notes or unexpected objects such as `README_TO_RESTORE` in a bucket listing;
-- a leaked key with CloudTrail activity from unknown IPs;
-- a subdomain already serving attacker content;
-- new public snapshots of production disks that nobody can explain.
+| Trigger | Example |
+|---|---|
+| Ransom note in storage | `README_TO_RESTORE` or unexpected objects in a bucket listing |
+| Leaked key in use | CloudTrail activity for the key from unknown IPs |
+| Takeover already live | A subdomain serving attacker content |
+| Unexplained public snapshots | New public snapshots of production disks |
 
 ## Output format (per finding)
 
@@ -129,7 +109,7 @@ finding_id: OI-2026-0157
 catalog_id: aws-ebs-snapshot-public
 asset: {provider: aws, account: "111122223333", region: eu-west-2, resource: "snap-0abc1234def567890",
         attribution: A1, attribution_basis: "owner account in AWS Organization", in_inventory: true,
-        owner: "Payments Platform", environment: prod}
+        owner: "Payments Platform", environment: prod, controls: {edr: not-applicable}}
 exposure: {reach: internet-any, window_start_utc: "2026-10-30T14:02:00Z"}
 evidence:
   rung: E4

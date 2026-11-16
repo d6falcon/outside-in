@@ -34,7 +34,7 @@
           "additionalProperties": false,
           "properties": {
             "edr": { "type": "string", "enum": ["healthy", "stale", "missing", "not-applicable", "unknown"],
-                     "description": "not-applicable when the catalog class has agent_expected: false" },
+                     "description": "Defaults from the catalog class's agent_expected (false -> not-applicable). Override per asset: not-applicable when the asset is identified as an appliance or managed service; evaluate EDR when an agent_expected:false class is found on a general-purpose OS. Record why in edr_source. unknown is scored as missing." },
             "edr_last_seen_utc": { "type": "string", "format": "date-time" },
             "edr_source": { "type": "string", "description": "e.g. EDR console export, CMDB, CNAPP agent inventory" }
           }

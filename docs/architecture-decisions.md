@@ -1,7 +1,19 @@
 # Architecture decision records
 
 The design choices behind `outside-in`, written so a reviewer can challenge the reasoning rather than the result.
-Format: context → decision → consequences.
+Each record follows context → decision → consequences.
+
+| ADR | Decision in one line |
+|---|---|
+| [001](#adr-001-defender-first-least-touch-validation) | Prove exposure with the least possible contact (E0–E4 ladder). No exploits, no data, no found credentials |
+| [002](#adr-002-knowledge-as-versioned-data-not-prose) | Keep exposure knowledge in versioned YAML; keep the skills short |
+| [003](#adr-003-a-transparent-score-eps-next-to-the-prioritisation-engine-not-instead-of-it) | Score transparently with EPS, alongside (not instead of) the prioritisation engine |
+| [004](#adr-004-attribution-is-its-own-axis) | Track ownership confidence (A1–A3) separately from severity |
+| [005](#adr-005-mitre-attck-v201-detection-strategies-as-the-soc-hand-off) | Hand the SOC ATT&CK v20.1 detection strategies to watch while an exposure is open |
+| [006](#adr-006-close-the-instance-and-the-class) | Fix the instance and enforce an org-level guardrail for the class |
+| [007](#adr-007-anchor-response-runbooks-on-observed-initial-access-data) | Build runbooks in order of observed attacker entry routes (Threat Horizons) |
+| [008](#adr-008-vendor-neutral-by-design) | Name capabilities, not products |
+| [009](#adr-009-count-missing-edr-on-exposed-hosts-as-risk-never-as-mitigation) | Missing EDR on an exposed host raises priority; a healthy agent never lowers it |
 
 ---
 
@@ -128,11 +140,13 @@ the SOC hand-off (ADR-005), because most endpoint-based detection strategies nee
 exposed things can never run EDR (appliances, BMCs, hypervisors, OT, managed cloud services), so a blanket "no agent"
 rule would drown teams in false positives.
 
-**Decision.** Every catalog class carries `agent_expected` (true for general-purpose hosts and container nodes, false
-otherwise). Exposed assets in `agent_expected` classes are joined to the EDR inventory on stable identifiers (resource
-ID and hostname, not public IP). A **missing or stale** agent lifts the finding one band and turns the
-endpoint-dependent DETs into recorded `detection_gaps`. A **healthy** agent never lowers the band.
+**Decision.** Every catalog class carries `agent_expected` as a *class default* (true for general-purpose hosts and
+container nodes, false otherwise), which can be overridden per asset when the real asset is an appliance or managed
+service, or vice versa. Expected assets are joined to the EDR inventory on stable identifiers (resource ID and
+hostname, not public IP). A **missing, stale or unknown** agent lifts the finding one band (not stacked with the
+unmanaged-asset lift, since both share one root cause) and turns the endpoint-dependent DETs into recorded
+`detection_gaps`. A **healthy** agent never lowers the band.
 
 **Consequences.** Blind spots on the attack surface become a measured control-coverage metric (% of exposed hosts
-with healthy EDR) instead of a surprise during an incident. Deploying an agent is offered as an interim step or an
-exception's compensating control, never as the fix: only removing the exposure closes the finding.
+with healthy EDR) instead of a surprise during an incident. Deploying an agent is an interim safety net only. It is
+not the fix, and it doesn't qualify as an exception's compensating control, because it doesn't reduce Reach.

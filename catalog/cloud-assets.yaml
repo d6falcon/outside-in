@@ -37,7 +37,7 @@ cloud_assets:
   agent_expected: false
   risk: "Bulk data exposure: backups, exports, logs, IaC state, PII. Automated bucket-hunters index new public buckets within hours."
   discover: ["Bucket names in CNAMEs, CSP headers, JS bundles and mobile apps", "Org-name permutations, checked existence-only", "Public bucket search indexes (e.g. GrayhatWarfare) filtered to our names", "Wayback / CT for *.s3*.amazonaws.com references"]
-  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<bucket>.s3.amazonaws.com/?list-type=2&max-keys=1'", exposed_if: "200 = anonymous listing. 403 = exists, private. 404 NoSuchBucket = check for dangling references (see dangling-dns-cloud). Record key NAMES/count only"}
+  proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<bucket>.s3.amazonaws.com/?list-type=2&max-keys=1'", exposed_if: "200 = anonymous listing. 403 = exists, private. 404 NoSuchBucket = check for dangling references (see dangling-dns-cloud). To record evidence, rerun without -o /dev/null and keep the first key NAME only. Get the object count from the owner inside-out, never by paging the listing"}
   inside_out: "aws s3api get-bucket-policy-status --bucket <bucket>; aws s3api get-public-access-block --bucket <bucket>; aws s3control get-public-access-block --account-id <acct>; aws accessanalyzer list-findings --analyzer-arn <arn> --filter '{\"resourceType\":{\"eq\":[\"AWS::S3::Bucket\"]},\"status\":{\"eq\":[\"ACTIVE\"]}}'"
   attack: {access: [T1530], follow_on: [T1619, T1567.002, T1552.001]}
   soc_watch: [DET0484, DET0578, DET0570, DET0307]
@@ -70,7 +70,7 @@ cloud_assets:
   risk: "Container- or blob-level anonymous read. Account names are globally unique DNS, so they are easy to enumerate."
   discover: ["<acct>.blob.core.windows.net references in code, CNAMEs and CT", "DNS existence check of org-name permutations (nslookup <acct>.blob.core.windows.net)"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://<acct>.blob.core.windows.net/<container>?restype=container&comp=list&maxresults=1'", exposed_if: "200 = anonymous container listing (E3). 409 PublicAccessNotPermitted = account blocks anonymous access. 404 = not listable anonymously, but blob-level anonymous read may still be on, so confirm inside-out"}
-  inside_out: "az storage account list --query \"[?allowBlobPublicAccess!=`false`].{name:name,rg:resourceGroup,allow:allowBlobPublicAccess}\" (null = not explicitly disabled, treat as allowed); az storage container list --account-name <acct> --auth-mode login --query \"[?properties.publicAccess].name\""
+  inside_out: "az storage account list --query '[?allowBlobPublicAccess!=`false`].{name:name,rg:resourceGroup,allow:allowBlobPublicAccess}' (single quotes keep the backticks literal in bash and PowerShell; null = not explicitly disabled, treat as allowed); az storage container list --account-name <acct> --auth-mode login --query '[?properties.publicAccess].name'"
   attack: {access: [T1530], follow_on: [T1619, T1567.002]}
   soc_watch: [DET0484, DET0578, DET0570]
   mitigations: [M1022, M1041, M1047]
@@ -102,12 +102,12 @@ cloud_assets:
   risk: "allAuthenticatedUsers means ANY Google account, not your org. This is a common misunderstanding."
   discover: ["storage.googleapis.com/<bucket> and <bucket>.storage.googleapis.com references", "Firebase storage buckets (<project>.appspot.com / <project>.firebasestorage.app)"]
   proof: {rung: E3, cmd: "curl -s -o /dev/null -w '%{http_code}' 'https://storage.googleapis.com/storage/v1/b/<bucket>/o?maxResults=1'", exposed_if: "200 = public listing (E3). 401/403 = not listable anonymously, but individual objects may still be public via allUsers object read, so confirm inside-out. 404 = not found"}
-  inside_out: "gcloud storage buckets get-iam-policy gs://<bucket> --format=json; gcloud storage buckets describe gs://<bucket> --format='value(public_access_prevention)'"
+  inside_out: "gcloud storage buckets get-iam-policy gs://<bucket> --format=json; gcloud storage buckets describe gs://<bucket> --format='value(public_access_prevention)' ('inherited' = not set on the bucket; enforced only if org/folder/project policy enforces storage.publicAccessPrevention: gcloud resource-manager org-policies describe storage.publicAccessPrevention --project=<p> --effective)"
   attack: {access: [T1530], follow_on: [T1619, T1567.002]}
   soc_watch: [DET0484, DET0578, DET0570]
   mitigations: [M1022, M1041, M1047]
   fix: "Remove the allUsers and allAuthenticatedUsers bindings, enforce public access prevention, and use uniform bucket-level access."
-  guardrail: "Org policies constraints/storage.publicAccessPrevention and constraints/iam.allowedPolicyMemberDomains (domain-restricted sharing)."
+  guardrail: "Org policies constraints/storage.publicAccessPrevention and constraints/iam.allowedPolicyMemberDomains (domain-restricted sharing). CAUTION: enforcing publicAccessPrevention applies to EXISTING buckets within about 10 minutes and immediately stops any intentionally public bucket serving. List those first (Cloud Asset Inventory / SCC) and exempt their projects. allowedPolicyMemberDomains only blocks NEW public bindings; remove existing ones separately."
 
 - id: other-object-storage
   name: Other S3-compatible / object stores (DigitalOcean Spaces, Cloudflare R2 public buckets, OCI pre-authenticated requests, Alibaba OSS, Backblaze B2, Wasabi)
@@ -236,7 +236,7 @@ cloud_assets:
   risk: "Rule 0.0.0.0-255.255.255.255 = whole internet. Rule 0.0.0.0-0.0.0.0 ('Allow Azure services') = ANY Azure tenant, including attackers' subscriptions."
   discover: ["*.database.windows.net / *.postgres.database.azure.com / *.mysql.database.azure.com in code and config"]
   proof: {rung: E1, cmd: "nmap -Pn -p1433,5432,3306 <server-fqdn>", exposed_if: "TDS/PG/MySQL handshake from an arbitrary internet IP"}
-  inside_out: "Azure SQL: az sql server show -n <srv> -g <rg> --query publicNetworkAccess; az sql server firewall-rule list -s <srv> -g <rg> --query \"[?startIpAddress=='0.0.0.0']\". PostgreSQL flexible: az postgres flexible-server show -g <rg> -n <srv> --query network.publicNetworkAccess; az postgres flexible-server firewall-rule list -g <rg> -n <srv>. MySQL flexible: az mysql flexible-server show -g <rg> -n <srv> --query network.publicNetworkAccess; az mysql flexible-server firewall-rule list -g <rg> -n <srv>"
+  inside_out: "Azure SQL: az sql server show -n <srv> -g <rg> --query publicNetworkAccess; az sql server firewall-rule list -s <srv> -g <rg> --query \"[?startIpAddress=='0.0.0.0']\". PostgreSQL flexible: az postgres flexible-server show -g <rg> -n <srv> --query network.publicNetworkAccess; az postgres flexible-server firewall-rule list -g <rg> -s <srv>. MySQL flexible: az mysql flexible-server show -g <rg> -n <srv> --query network.publicNetworkAccess; az mysql flexible-server firewall-rule list -g <rg> -n <srv>"
   attack: {access: [T1190, T1110.001], follow_on: [T1213.006]}
   soc_watch: [DET0080, DET0551, DET0242]
   mitigations: [M1035, M1037, M1032]
@@ -462,7 +462,7 @@ cloud_assets:
   risk: "Control plane open to the internet. One leaked kubeconfig or token, or an RBAC slip (system:anonymous), means cluster takeover."
   discover: ["*.eks.amazonaws.com, *.azmk8s.io endpoints in CT, passive DNS and kubeconfigs in leaks", "GKE endpoints in GCP ranges answering 443 with a Kubernetes cert"]
   proof: {rung: E2, cmd: "curl -sk https://<endpoint>/version", exposed_if: "Kubernetes version JSON returned from an arbitrary internet IP (see services.yaml k8s-api for the anonymous-read test)"}
-  inside_out: "aws eks describe-cluster --name <c> --query 'cluster.resourcesVpcConfig.[endpointPublicAccess,publicAccessCidrs]'; az aks show -g <rg> -n <c> --query apiServerAccessProfile; gcloud container clusters describe <c> --region europe-west2 --format='yaml(privateClusterConfig,masterAuthorizedNetworksConfig)'"
+  inside_out: "aws eks describe-cluster --name <c> --query 'cluster.resourcesVpcConfig.[endpointPublicAccess,publicAccessCidrs]'; az aks show -g <rg> -n <c> --query apiServerAccessProfile; gcloud container clusters describe <c> --region europe-west2 --format='yaml(privateClusterConfig,masterAuthorizedNetworksConfig,controlPlaneEndpointsConfig)' (check dnsEndpointConfig.allowExternalTraffic too: a private IP endpoint can still be internet-reachable via DNS)"
   attack: {access: [T1078.004, T1190], follow_on: [T1609, T1610, T1613, T1552.007]}
   soc_watch: [DET0546, DET0080, DET0065, DET0249, DET0490, DET0198]
   mitigations: [M1035, M1026, M1018]
@@ -577,7 +577,7 @@ cloud_assets:
   risk: "Fastest-growing cloud entry route. Valid keys lead to discovery, persistence (new keys, roles, users), data theft, LLMjacking and S3 ransomware."
   discover: ["Public code (GitHub/GitLab code search, gists), package registries, public container images, mobile apps, Postman public workspaces, paste sites, public CI logs, Stack Overflow", "Provider partner alerts (GitHub secret scanning partner program → AWS / Azure / GCP)"]
   proof: {rung: E2, cmd: "Attribute WITHOUT using the key: aws sts get-access-key-info --access-key-id <AKIA...> (run with YOUR audit credentials; returns the owning account ID). Never call any API with the leaked secret", exposed_if: "Account / tenant / project belongs to the org (A1). Treat as valid until the owner proves otherwise"}
-  inside_out: "aws iam get-access-key-last-used --access-key-id <AKIA...>; aws cloudtrail lookup-events --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=<AKIA...>; az ad app credential list --id <appId>; gcloud iam service-accounts keys list --iam-account <sa> --managed-by=user"
+  inside_out: "aws iam get-access-key-last-used --access-key-id <AKIA...>; aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=<AKIA...> (IAM/STS events), then repeat per enabled region (see RB-02 B1); az ad app credential list --id <appId>; gcloud iam service-accounts keys list --iam-account <sa> --managed-by=user"
   attack: {access: [T1552.001, T1078.004], follow_on: [T1580, T1526, T1098.001, T1136.003, T1530, T1496.004, T1486]}
   soc_watch: [DET0307, DET0546, DET0169, DET0402, DET0531, DET0319, DET0484, DET0147, DET0215]
   mitigations: [M1047, M1018, M1026, M1027]

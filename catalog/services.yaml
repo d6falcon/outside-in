@@ -3,9 +3,10 @@
 #
 # Field guide
 #   weight       critical | high | medium | low   -> feeds the EPS "Class" factor (25 / 20 / 10 / 3)
-#   agent_expected  true = the asset behind this exposure is a general-purpose host (or container node) that should
-#                run your EDR / runtime sensor. A missing or stale agent lifts the finding one band (methodology s5).
+#   agent_expected  CLASS DEFAULT. true = the asset behind this exposure is a general-purpose host (or container node) that should
+#                run your EDR / runtime sensor. A missing, stale or unknown agent lifts the finding one band (methodology s5).
 #                false = appliance, BMC, hypervisor, IoT or OT where EDR can't run; rely on network and log telemetry.
+#                Override per asset when the real asset differs (e.g. a managed DB behind "mysql" = not-applicable).
 #   passive      Shodan-style filter. Replace <CIDR> / <ORG> / <DOMAIN>. Equivalent queries exist in Censys, FOFA,
 #                ZoomEye, Netlas and ONYPHE. Translate rather than copy blindly, because syntaxes change.
 #   proof        least-touch probe (needs active authorisation) + the rung on the evidence ladder it reaches
@@ -90,7 +91,7 @@ services:
   agent_expected: true
   risk: "Remote PowerShell. Valid credentials give direct command execution. NTLM auth exposes a spray target."
   passive: "net:<CIDR> port:5985,5986"
-  proof: {rung: E2, cmd: "curl -s -o /dev/null -D - -X POST http://<ip>:5985/wsman | head -n 5; curl -sk -o /dev/null -D - -X POST https://<ip>:5986/wsman | head -n 5", exposed_if: "401 with WWW-Authenticate Negotiate/Kerberos/NTLM on /wsman = WinRM listener reachable"}
+  proof: {rung: E2, cmd: "curl -s -o /dev/null -D - -X POST -d '' http://<ip>:5985/wsman | head -n 5; curl -sk -o /dev/null -D - -X POST -d '' https://<ip>:5986/wsman | head -n 5", exposed_if: "401 with WWW-Authenticate Negotiate/Kerberos/NTLM on /wsman = WinRM listener reachable"}
   attack: {access: [T1133, T1110.003], follow_on: [T1021.006, T1059.001]}
   soc_watch: [DET0354, DET0487, DET0477]
   mitigations: [M1035, M1042, M1030, M1026]

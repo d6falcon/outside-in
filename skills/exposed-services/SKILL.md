@@ -19,14 +19,14 @@ an edit.
 
 ## 0. Before you start: establish scope and authority
 
-Ask for (or confirm) these. If they are missing, write down the assumption you are making.
+Ask for, or confirm, these. If any are missing, write down the assumption you are making.
 
-1. **Seeds:** org legal names, primary domains, ASNs, CIDRs, cloud accounts / subscriptions / projects.
-2. **Mode:**
-   - `passive` (default): third-party datasets only. No packets to the targets.
-   - `active`: needs written authorisation naming ranges, rate limit (default **≤ 100 pps**), time window and a stop contact.
-3. **Exclusions:** OT/ICS ranges, fragile legacy systems, third-party-hosted services the org does not operate.
-4. **Output target:** findings JSON (`schemas/finding.schema.json`), owner tickets, exec brief, or all three.
+| Item | Detail |
+|---|---|
+| **Seeds** | Org legal names, primary domains, ASNs, CIDRs, cloud accounts / subscriptions / projects |
+| **Mode** | `passive` (default): third-party datasets only, no packets to targets. `active`: written authorisation naming ranges, rate limit (default **≤ 100 pps**), window and stop contact |
+| **Exclusions** | OT/ICS ranges, fragile legacy systems, third-party-hosted services the org doesn't operate |
+| **Output** | Findings JSON (`schemas/finding.schema.json`), owner tickets, exec brief, or all three |
 
 **Refuse or stop** if the user wants to probe IPs that are not attributable to them (A3) or that belong to someone
 else, or wants exploitation, default-credential testing (unless the RoE explicitly allows it), or data access to
@@ -64,11 +64,11 @@ source IP you scanned from.
 
 ## 2. Attribute
 
-For each candidate, set the attribution level:
-
-- **A1:** in our RIR allocation, cloud inventory, CMDB, or DNS zone with a matching record.
-- **A2:** our certificate, reverse DNS, or content, but not in inventory. **Also raise an `unmanaged-asset` finding.**
-- **A3:** weak signals only. Send it to the attribution queue (exposure-triage skill). **No active probing.**
+| Level | Evidence | Action |
+|---|---|---|
+| **A1** | In our RIR allocation, cloud inventory, CMDB, or DNS zone with a matching record | Proceed |
+| **A2** | Our certificate, reverse DNS or content, but not in inventory | Proceed, and raise an `unmanaged-asset` finding |
+| **A3** | Weak signals only | Attribution queue (exposure-triage). **No active probing** |
 
 Name an **owner** (team or person) for every A1/A2 asset. If you cannot, the owner is "unknown" and the
 exposure-triage skill routes it to the attribution queue with a deadline.
@@ -89,21 +89,23 @@ subscribe to MQTT topics, or read database, bucket or index contents.
 
 ## 4. Enrich
 
-For every E2+ finding with an identified product and version:
+For every E2+ finding with an identified product and version, check live (never from memory):
 
-- **CISA KEV:** is any CVE for this product and version listed? If so, record `kev: true` and the KEV `dateAdded`.
-- **EPSS:** current score for each relevant CVE.
-- **Exploitation chatter:** vendor PSIRT, CISA advisories, mass-scanning telemetry (e.g. GreyNoise tags) for the port or product.
-- **Catalog `intel`:** it is *illustrative only*. Re-check it live and never cite it as current without checking.
+| Source | Record |
+|---|---|
+| **CISA KEV** | `kev: true` and the KEV `dateAdded` if any CVE for this product and version is listed |
+| **EPSS** | The current score for each relevant CVE (keep the max) |
+| **Exploitation chatter** | Vendor PSIRT, CISA advisories, mass-scanning telemetry (e.g. GreyNoise) for the port or product |
+| **Catalog `intel`** | Illustrative only. Re-check before citing |
 
 ## 5. Map to ATT&CK v20.1
 
-Copy from the catalog entry into the finding:
-
-- `attack.recon`: catalog `defaults.recon`
-- `attack.access` and `attack.follow_on`: from the entry
-- `soc_watch`: DET IDs from the entry
-- `mitigations`: M IDs from the entry
+| Finding field | Copy from |
+|---|---|
+| `attack.recon` | Catalog `defaults.recon` |
+| `attack.access`, `attack.follow_on` | The entry |
+| `soc_watch` | The entry's DET IDs |
+| `mitigations` | The entry's M IDs |
 
 To expand a technique, or check a DET or M ID, look it up in `catalog/attack-enterprise.tsv` (columns: technique,
 name, tactics, platforms, detection strategies, mitigations). Do not invent IDs. If you need a technique that is not

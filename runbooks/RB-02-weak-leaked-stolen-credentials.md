@@ -201,12 +201,13 @@ If any unexplained **read** of data is found, or logging gaps make it impossible
 # AWS: last 90 days of management events for the key (CloudTrail Lake / Athena over the org trail for older
 # history, data events and all regions in one query; that is the preferred route)
 # IAM, STS and console sign-in are GLOBAL services: their events appear in event history only in us-east-1.
+# The CLI pages through all results. Don't add --max-results: it switches pagination off and returns one page only.
 aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=<AKIA-or-ASIA-key> \
-  --max-results 50 --query 'Events[].[EventTime,EventName,EventSource]' --output table
+  --query 'Events[].[EventTime,EventName,EventSource]' --output table
 # Then repeat WITHOUT us-east-1 for each region in use (EC2, Lambda, S3 control plane, Bedrock … are regional).
 for r in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output text); do
   aws cloudtrail lookup-events --region "$r" --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=<key> \
-    --max-results 50 --query 'Events[].[EventTime,EventName,EventSource]' --output text
+    --query 'Events[].[EventTime,EventName,EventSource]' --output text
 done
 aws iam get-access-key-last-used --access-key-id <AKIA-key>
 
@@ -256,8 +257,9 @@ for r in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output text
 done
 
 # Google Cloud: IAM policy grants and new SA keys since the look-back start. Use ':' (substring) on methodName, because
-# services log names such as google.iam.v1.IAMPolicy.SetIamPolicy. Run per project, or against the central log bucket.
-gcloud logging read 'protoPayload.methodName:"SetIamPolicy" OR protoPayload.methodName:"CreateServiceAccountKey" OR protoPayload.methodName:"CreateServiceAccount"' \
+# services log names such as google.iam.v1.IAMPolicy.SetIamPolicy. Cloud Storage logs bucket IAM changes as
+# storage.setIamPermissions, so include it. Run per project, or against the central log bucket.
+gcloud logging read 'protoPayload.methodName:"SetIamPolicy" OR protoPayload.methodName:"setIamPermissions" OR protoPayload.methodName:"CreateServiceAccountKey" OR protoPayload.methodName:"CreateServiceAccount"' \
   --project=<project> --freshness=30d --format="table(timestamp,protoPayload.authenticationInfo.principalEmail,protoPayload.methodName,resource.labels.project_id)"
 
 # Azure: role assignments created recently (Activity Log)

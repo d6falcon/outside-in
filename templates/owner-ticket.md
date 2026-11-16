@@ -33,6 +33,7 @@ most common ways ransomware gets in."}}
 1. **Contain within 24h** (P1 only): {{containment}}
 2. **Fix:** {{fix}}
 3. **Stop it recurring (guardrail):** {{guardrail}}. Currently in place: {{yes/no}}
+4. **Interim, if EDR is expected on this asset:** EDR is {{healthy / stale / missing / unknown}}. Deploy or repair the agent while the fix lands. This is a safety net, not the fix, and not a compensating control for an exception.
 
 ## How we'll verify
 

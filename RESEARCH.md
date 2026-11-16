@@ -41,15 +41,12 @@ seeing both in your organisation, the data says you are typical, not unlucky.
 
 ### 1.3 What this means for the repo
 
-- **Remote access and admin interfaces** (RDP, SSH, VNC, WinRM, VPN and firewall portals, iLO/iDRAC/IPMI, hypervisor
-  management) carry the most weight. CISA **BOD 23-02** already requires US federal agencies to remove
-  internet-exposed management interfaces. It is a sensible baseline for any enterprise.
-- **Unauthenticated data planes** (databases, caches, search clusters, object stores, message brokers) turn exposure
-  into data extortion with no exploit at all.
-- **Edge appliances** are both an exposed service and a frequent KEV entry, so exposure and patch status must be
-  scored together.
-- **Newer classes** include container and orchestration APIs, CI/CD and observability consoles, and **self-hosted AI
-  inference and MCP servers**.
+| Family | Why it matters |
+|---|---|
+| **Remote access and admin interfaces** (RDP, SSH, VNC, WinRM, VPN/firewall portals, iLO/iDRAC/IPMI, hypervisors) | Carry the most weight. CISA **BOD 23-02** already makes US federal agencies remove internet-exposed management interfaces, which is a sensible baseline for any enterprise |
+| **Unauthenticated data planes** (databases, caches, search clusters, object stores, brokers) | Turn exposure into data extortion with no exploit at all |
+| **Edge appliances** | Both an exposed service and a frequent KEV entry, so exposure and patch status are scored together |
+| **Newer classes** | Container and orchestration APIs, CI/CD and observability consoles, **self-hosted AI inference and MCP servers** |
 
 ---
 
@@ -69,30 +66,25 @@ seeing both in your organisation, the data says you are typical, not unlucky.
 
 "Exposed cloud assets" is wider than public buckets. The catalog covers:
 
-1. **Data exposure:** object storage, public snapshots and images, managed databases and search, Firebase and
-   Supabase-style back ends, SaaS share links.
-2. **Compute and control-plane exposure:** public Kubernetes API endpoints, serverless functions without
-   authentication, VM security groups open to `0.0.0.0/0`, container registries.
-3. **Identity exposure:** leaked access keys, tokens and service-account JSON. This is the non-human identity
-   problem, and it is the fastest-growing slice.
-4. **DNS exposure:** dangling records that point at deprovisioned cloud resources (subdomain takeover).
-5. **AI exposure:** inference servers, notebooks, vector databases and MCP endpoints.
+| Exposure type | Examples |
+|---|---|
+| **Data** | Object storage, public snapshots and images, managed databases and search, Firebase/Supabase back ends, SaaS share links |
+| **Compute and control plane** | Public Kubernetes API endpoints, unauthenticated serverless, security groups open to `0.0.0.0/0`, container registries |
+| **Identity** | Leaked access keys, tokens, service-account JSON. The non-human identity problem, and the fastest-growing slice |
+| **DNS** | Dangling records pointing at deprovisioned cloud resources (subdomain takeover) |
+| **AI** | Inference servers, notebooks, vector databases, MCP endpoints |
 
 ---
 
 ## 3. Why MITRE ATT&CK v20.1?
 
-ATT&CK **v20.1** (released 13 Oct 2026, data updated 5 Nov 2026) is current. Several recent changes matter here:
+ATT&CK **v20.1** (released 13 Oct 2026, data updated 5 Nov 2026) is current. The recent changes that matter here:
 
-- **v18 (Oct 2025)** introduced **Detection Strategies (DETxxxx)** and **Analytics (ANxxxx)** as first-class objects.
-  This lets each exposure finding name the detection coverage the SOC needs while the fix is in flight.
-- **v19 (Apr 2026)** split Defense Evasion into **Stealth (TA0005)** and **Defense Impairment (TA0112)**.
-  *Impair Defenses (T1562)* was revoked in favour of **Disable or Modify Tools (T1685)** and <!-- attack-lint: historical -->
-  **Disable or Modify System Firewall (T1686)**. **T1686.001 Cloud Firewall** directly covers an attacker *opening*
-  a security group, which is how exposures are deliberately created after compromise.
-- **v20 (Oct 2026)** added AI-related techniques such as **Direct/Indirect Prompt Injection (T1699/T1698)**,
-  **AI-Enabled Exfiltration (T1700)** and **AI Result Poisoning (T1608.007)**. These are relevant to exposed AI and MCP
-  endpoints.
+| Version | Change | Why it matters here |
+|---|---|---|
+| **v18** (Oct 2025) | **Detection Strategies (DETxxxx)** and **Analytics (ANxxxx)** become first-class objects | Each finding can name the detection coverage the SOC needs while the fix is in flight |
+| **v19** (Apr 2026) | Defense Evasion split into **Stealth (TA0005)** and **Defense Impairment (TA0112)**. *Impair Defenses (T1562)* revoked in favour of **T1685** and **T1686** <!-- attack-lint: historical --> | **T1686.001 Cloud Firewall** covers an attacker *opening* a security group, which is how exposures get created after compromise |
+| **v20** (Oct 2026) | AI techniques: **Direct/Indirect Prompt Injection (T1699/T1698)**, **AI-Enabled Exfiltration (T1700)**, **AI Result Poisoning (T1608.007)** | Used for exposed AI and MCP endpoints |
 
 All technique, DET and mitigation IDs in this repo were checked against MITRE's official STIX bundle
 (`enterprise-attack-20.1.json`) on 12 Nov 2026. See [scripts/Update-AttackMapping.ps1](scripts/Update-AttackMapping.ps1).
@@ -101,23 +93,25 @@ All technique, DET and mitigation IDs in this repo were checked against MITRE's 
 
 ## Sources
 
-- Verizon 2026 DBIR: <https://www.verizon.com/business/resources/T343/reports/2026-dbir-data-breach-investigations-report.pdf>
-- Commentary on DBIR 2026: <https://watchtowr.com/resources/verizon-dbir-2026-vulnerability-exploitation/>, <https://eclypsium.com/blog/verizon-dbir-2026/>, <https://blog.cybelesoft.com/dbir-2026-edge-device-exploitation/>
-- Mandiant M-Trends 2026: <https://cloud.google.com/blog/topics/threat-intelligence/m-trends-2026>
-- Arctic Wolf 2026 Threat Report: <https://arcticwolf.com/resources/press-releases/arctic-wolf-threat-report-highlights-11x-growth-in-data-extortion-incidents-and-continued-dominance-of-ransomware/>
-- Sophos Active Adversary Report 2026: <https://www.sophos.com/en-us/blog/2026-sophos-active-adversary-report>
-- Sophos State of Ransomware 2026: <https://www.sophos.com/en-us/blog/sophos-state-of-ransomware-2026>
-- Rapid7 Threat Landscape Report 2026: <https://www.rapid7.com/cdn/assets/bltc1ddd6561ab54a26/69ba67de50ca691edcd3f5b7/rapid7-threat-landscape-report-2026.pdf>
-- RDP exposure: <https://dev.to/stark_zhuang_df5076f35c68/156-million-exposed-rdp-endpoints-why-remote-desktop-remains-the-favourite-initial-access-vector-48ff>
-- EU exposure study: <https://cyberleveling.com/blog/eu-internet-exposure-research-2026>
-- Open-port statistics roundup: <https://scantitan.com/research/open-ports-statistics/>
-- MongoDB exposure (Flare): <https://flare.io/?p=32759>, <https://securityaffairs.com/187548/security/hackers-exploit-unsecured-mongodb-instances-to-wipe-data-and-demand-ransom.html>
-- Ransomed databases: <https://www.securityscientist.net/blog/exposed-databases-ransomed/>, <https://securityaffairs.com/192711/cyber-crime/the-hidden-ransomware-economy-running-on-exposed-databases.html>
-- Google Cloud Threat Horizons H1 2026: <https://cloud.google.com/security/report/resources/cloud-threat-horizons-report-h1-2026>
-- Unit 42 2026 IR Report: <https://www.paloaltonetworks.com/resources/research/unit-42-incident-response-report>
-- Wiz 2026 summary (secondary): <https://stats.conversationalgeek.com/analysis/wiz-2026-cloud-security>
-- Cloud misconfiguration roundups: <https://securityboulevard.com/2026/08/why-cloud-misconfigurations-continue-to-cause-data-breaches-in-2026/>, <https://www.sentinelone.com/cybersecurity-101/cloud-security/cloud-security-statistics/>
-- Exposed AI / MCP: <https://censys.com/?p=9062>, <https://labs.cloudsecurityalliance.org/research/csa-research-note-exposed-ai-endpoints-20260915-csa-styled/>, <https://securityaffairs.com/198898/ai/the-ai-supply-chain-has-a-security-problem-and-much-of-it-is-sitting-on-the-open-internet.html>
-- MITRE ATT&CK versions and release notes: <https://attack.mitre.org/resources/versions/>, <https://attack.mitre.org/resources/updates/updates-october-2026/>, <https://attack.mitre.org/resources/updates/updates-april-2026/>
-- MITRE STIX data: <https://github.com/mitre-attack/attack-stix-data>
-- CISA BOD 23-02 (internet-exposed management interfaces): <https://www.cisa.gov/news-events/directives/bod-23-02-mitigating-risk-internet-exposed-management-interfaces>
+| Topic | Source |
+|---|---|
+| Verizon 2026 DBIR | <https://www.verizon.com/business/resources/T343/reports/2026-dbir-data-breach-investigations-report.pdf> |
+| Commentary on DBIR 2026 | <https://watchtowr.com/resources/verizon-dbir-2026-vulnerability-exploitation/>, <https://eclypsium.com/blog/verizon-dbir-2026/>, <https://blog.cybelesoft.com/dbir-2026-edge-device-exploitation/> |
+| Mandiant M-Trends 2026 | <https://cloud.google.com/blog/topics/threat-intelligence/m-trends-2026> |
+| Arctic Wolf 2026 Threat Report | <https://arcticwolf.com/resources/press-releases/arctic-wolf-threat-report-highlights-11x-growth-in-data-extortion-incidents-and-continued-dominance-of-ransomware/> |
+| Sophos Active Adversary Report 2026 | <https://www.sophos.com/en-us/blog/2026-sophos-active-adversary-report> |
+| Sophos State of Ransomware 2026 | <https://www.sophos.com/en-us/blog/sophos-state-of-ransomware-2026> |
+| Rapid7 Threat Landscape Report 2026 | <https://www.rapid7.com/cdn/assets/bltc1ddd6561ab54a26/69ba67de50ca691edcd3f5b7/rapid7-threat-landscape-report-2026.pdf> |
+| RDP exposure | <https://dev.to/stark_zhuang_df5076f35c68/156-million-exposed-rdp-endpoints-why-remote-desktop-remains-the-favourite-initial-access-vector-48ff> |
+| EU exposure study | <https://cyberleveling.com/blog/eu-internet-exposure-research-2026> |
+| Open-port statistics roundup | <https://scantitan.com/research/open-ports-statistics/> |
+| MongoDB exposure (Flare) | <https://flare.io/?p=32759>, <https://securityaffairs.com/187548/security/hackers-exploit-unsecured-mongodb-instances-to-wipe-data-and-demand-ransom.html> |
+| Ransomed databases | <https://www.securityscientist.net/blog/exposed-databases-ransomed/>, <https://securityaffairs.com/192711/cyber-crime/the-hidden-ransomware-economy-running-on-exposed-databases.html> |
+| Google Cloud Threat Horizons H1 2026 | <https://cloud.google.com/security/report/resources/cloud-threat-horizons-report-h1-2026> |
+| Unit 42 2026 IR Report | <https://www.paloaltonetworks.com/resources/research/unit-42-incident-response-report> |
+| Wiz 2026 summary (secondary) | <https://stats.conversationalgeek.com/analysis/wiz-2026-cloud-security> |
+| Cloud misconfiguration roundups | <https://securityboulevard.com/2026/08/why-cloud-misconfigurations-continue-to-cause-data-breaches-in-2026/>, <https://www.sentinelone.com/cybersecurity-101/cloud-security/cloud-security-statistics/> |
+| Exposed AI / MCP | <https://censys.com/?p=9062>, <https://labs.cloudsecurityalliance.org/research/csa-research-note-exposed-ai-endpoints-20260915-csa-styled/>, <https://securityaffairs.com/198898/ai/the-ai-supply-chain-has-a-security-problem-and-much-of-it-is-sitting-on-the-open-internet.html> |
+| MITRE ATT&CK versions and release notes | <https://attack.mitre.org/resources/versions/>, <https://attack.mitre.org/resources/updates/updates-october-2026/>, <https://attack.mitre.org/resources/updates/updates-april-2026/> |
+| MITRE STIX data | <https://github.com/mitre-attack/attack-stix-data> |
+| CISA BOD 23-02 (internet-exposed management interfaces) | <https://www.cisa.gov/news-events/directives/bod-23-02-mitigating-risk-internet-exposed-management-interfaces> |

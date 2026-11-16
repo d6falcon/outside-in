@@ -36,7 +36,7 @@ recommended guardrail.}}
 - **Ownership:** {{n}} exposed assets have no identified owner ({{n}} of them not in any inventory).
 - **Detection:** the SOC lacks coverage for {{DET IDs / plain names}} on {{n}} exposed assets.
 - **Endpoint coverage:** {{n}} of {{n}} internet-exposed hosts that should run EDR have a healthy agent ({{%}}).
-  {{n}} missing, {{n}} stale.
+  {{n}} missing, {{n}} stale, {{n}} not yet joined (unknown).
 
 ## Decisions needed
 

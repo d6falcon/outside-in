@@ -6,13 +6,14 @@ To make the skills available in every project of an AI coding assistant that rea
 Code's user skills folder), copy the skills and the knowledge base:
 
 ```bash
+mkdir -p ~/.claude/skills ~/.claude/skills/outside-in-kb
 cp -r skills/* ~/.claude/skills/
-mkdir -p ~/.claude/skills/outside-in-kb && cp -r catalog docs schemas templates runbooks ~/.claude/skills/outside-in-kb/
+cp -r catalog docs schemas templates runbooks ~/.claude/skills/outside-in-kb/
 ```
 
 ```powershell
+New-Item -ItemType Directory -Force "$HOME\.claude\skills", "$HOME\.claude\skills\outside-in-kb" | Out-Null
 Copy-Item -Recurse skills\* "$HOME\.claude\skills\"
-New-Item -ItemType Directory -Force "$HOME\.claude\skills\outside-in-kb" | Out-Null
 Copy-Item -Recurse catalog, docs, schemas, templates, runbooks "$HOME\.claude\skills\outside-in-kb\"
 ```
 
@@ -24,5 +25,9 @@ After each MITRE release (April and October), run this on Windows PowerShell 5.1
 ./scripts/Update-AttackMapping.ps1
 ```
 
-It regenerates `catalog/attack-enterprise.tsv` and fails if any cited ID is revoked, deprecated or mistyped, or if a
-detection strategy is cited without a technique it detects.
+| Check | Fails when |
+|---|---|
+| 1 | Any cited technique, detection strategy or mitigation ID is revoked, deprecated or mistyped |
+| 2 | A detection strategy is cited without a technique it detects (per catalog entry and per runbook) |
+
+It also regenerates `catalog/attack-enterprise.tsv`.

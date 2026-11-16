@@ -32,37 +32,24 @@ exposure loop and skills themselves. They come next in the [backlog](../RUNBOOKS
 
 ## Conventions
 
-- **Header table:** trigger, catalog IDs, MITRE ATT&CK® Enterprise v20.1 techniques and Detection Strategies (DET),
-  default priority.
-- **Sections:**
-  0. Trigger
-  1. Roles
-  2. First 60 minutes
-  3. Investigation
-  4. Remediation and guardrail
-  5. Verification
-  6. Exit criteria
-  7. Metrics
-  - Appendix: provider commands
-- **Roles:**
+| Convention | Meaning |
+|---|---|
+| **Header table** | Trigger, catalog IDs, MITRE ATT&CK® Enterprise v20.1 techniques and detection strategies (DET), priority |
+| **Sections** | 0 Trigger · 1 Roles · 2 First 60 minutes · 3 Investigation · 4 Remediation and guardrail · 5 Verification · 6 Exit criteria · 7 Metrics · Appendix: commands |
+| **(read) / (change)** | Read-only command / state-changing command that needs an emergency-change record. Both run with the owner's or IR's least-privileged credentials |
+| **Regions** | London examples: AWS `eu-west-2`, Google Cloud `europe-west2`, Azure `uksouth`. Provider-fixed global endpoints (e.g. AWS IAM events in `us-east-1`) stay as-is |
+| **Preserve → contain → fix** | Reversible containment (deactivate, isolate, restrict) before destructive actions (delete, terminate, rebuild) |
+| **Look-back** | From the start of the exposure window, never "since we noticed" |
+| **Hygiene** | No secrets, data samples or personal data in tickets, chat or this repository |
 
-  | Role | Who it usually is |
-  |---|---|
-  | **ASM lead** | Owns the exposure programme. Runs the runbook until IR takes command. |
-  | **Asset owner** | Team that runs the system. Makes the change. |
-  | **SOC** | Monitoring, hunting, detection-gap confirmation. |
-  | **IR lead** | Takes command once there is evidence of compromise. |
-  | **Privacy / Legal** | Breach assessment and regulatory clocks. |
-  | **Change authority** | Approves emergency changes. |
-
-- **Commands** are for the owner or IR to run with their own least-privileged credentials. Read-only commands are
-  marked **(read)**. State-changing commands are marked **(change)** and need an emergency-change record.
-- **Regions:** examples use London (AWS `eu-west-2`, Google Cloud `europe-west2`, Azure `uksouth`). Provider-fixed
-  global endpoints, such as AWS IAM events in `us-east-1`, are kept as-is.
-- **Preserve, then contain, then fix.** Prefer reversible containment (deactivate, isolate, restrict) over destructive
-  actions (delete, terminate, rebuild) until evidence is captured.
-- **Look-back window = exposure window**, never "since we noticed".
-- **No secrets, data samples or personal data** in tickets, chat or this repository.
+| Role | Who it usually is |
+|---|---|
+| **ASM lead** | Owns the exposure programme. Runs the runbook until IR takes command |
+| **Asset owner** | Team that runs the system. Makes the change |
+| **SOC** | Monitoring, hunting, detection-gap confirmation |
+| **IR lead** | Takes command once there is evidence of compromise |
+| **Privacy / Legal** | Breach assessment and regulatory clocks |
+| **Change authority** | Approves emergency changes |
 
 ## Source
 

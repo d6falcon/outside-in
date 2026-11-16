@@ -37,6 +37,7 @@ flowchart LR
   D --> V --> P
   P -- "Reach, attribution, evidence rung" --> PE
   EDRVM --> PE
+  EDRVM -- "agent coverage → no-EDR lift" --> P
   PE -- "exploit intel → Pressure" --> P
   P --> ITSM --> RO
   P --> SOC

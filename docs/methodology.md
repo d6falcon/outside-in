@@ -43,39 +43,28 @@ the main deliverable.
 
 These apply to every skill, every time.
 
-### Allowed without further authorisation (passive)
+| | Activity |
+|---|---|
+| **Allowed (passive)** | Internet-scan databases (Shodan, Censys, FOFA, ZoomEye, Netlas, ONYPHE…) for **your own** ranges, domains and certificates |
+| | Certificate transparency (crt.sh), passive DNS, WHOIS/RDAP, RIR/ASN data, cloud providers' published IP ranges |
+| | **Shadowserver** free daily reports for your networks; **CISA Cyber Hygiene** if eligible (US) |
+| | Reading your own cloud inventory and config with **read-only** credentials (inside-out checks) |
+| **Needs written authorisation (active)** | Port scanning, banner grabbing, HTTP probing, unauthenticated API calls to storage or management endpoints |
+| **Never, whatever the authorisation** | Exploits or proof-of-concept code against production |
+| | Authenticating with credentials, keys or tokens you find. Report them; the owner revokes and rotates |
+| | Downloading objects, rows or files to "prove" sensitivity. Key *names*, counts and metadata are enough |
+| | Writing, deleting or changing anything on an exposed asset, even to "test write access". Use the inside-out policy check |
+| | Probing assets below **A2** attribution. *Carve-out:* existence-only checks (a DNS lookup, or an HTTP status on a storage name) of a bounded, explainable list of brand permutations are allowed at A3. No listing, content or service probes until A2 |
 
-- Querying internet-scan databases (Shodan, Censys, FOFA, ZoomEye, Netlas, ONYPHE and similar) for **your own**
-  ranges, domains and certificates.
-- Certificate transparency (crt.sh), passive DNS, WHOIS/RDAP, RIR and ASN data, cloud providers' published IP ranges.
-- Subscribing your own networks to **Shadowserver** free daily reports and, for eligible US organisations,
-  **CISA Cyber Hygiene** scanning.
-- Reading your own cloud inventory and configuration with **read-only** credentials (inside-out checks).
+**The written authorisation names:**
 
-### Requires written authorisation (active)
-
-Active work needs a document that names:
-
-- the **IP ranges, hostnames and cloud accounts** in scope;
-- the **rate limits** (packets per second, requests per second) and **time windows**;
-- a **contact** who can stop the test;
-- the **data-handling** rules for anything sensitive you see.
-
-Active work includes port scanning, banner grabbing, HTTP probing, and unauthenticated API calls to storage or management
-endpoints.
-
-### Never, regardless of authorisation in this toolkit
-
-- Running exploits or proof-of-concept code against production.
-- Authenticating with credentials, keys or tokens you discover. Report them, and have the owner revoke and rotate.
-- Downloading object bodies, database rows or file contents to "prove" sensitivity. Key *names*, counts and metadata
-  are enough.
-- Writing, deleting or modifying anything on an exposed asset, even to "test write access". Use the inside-out policy
-  check instead.
-- Probing assets you cannot attribute to the organisation at **A2 or higher** (see below). The one carve-out:
-  **existence-only** checks (a DNS lookup, or an HTTP status on a storage endpoint name) of a *bounded*, explainable
-  list of brand-name permutations are allowed at A3, to establish whether a candidate exists at all. No listing, no
-  content and no service probes until the asset reaches A2.
+| Item | Example |
+|---|---|
+| Scope | IP ranges, hostnames, cloud accounts / subscriptions / projects |
+| Limits | ≤ 100 packets/s TCP, ≤ 50 packets/s UDP, ≤ 5 HTTP requests/s per host |
+| Window | e.g. 22:00–02:00 UK time, weekdays |
+| Stop contact | Named person and phone number who can halt the test |
+| Data handling | What to do if you see sensitive data (stop, record location only, notify) |
 
 > If you find something that is clearly someone else's (a supplier, a former subsidiary, a stranger's bucket), stop.
 > Record the minimum needed to notify, and route it through your security leadership or legal team.
@@ -169,10 +158,12 @@ EPS = Reach (0–25) + Class (0–25) + Pressure (0–25) + Blast (0–25)
 - **Lift one band** when the asset is unmanaged (A2 and not in inventory). Nobody is patching it.
 - **Lift one band** when the exposure has **regressed** (it was `closed-verified` and is open again). The guardrail is
   missing or was bypassed.
-- **Lift one band** when the catalog class has `agent_expected: true` and the asset's EDR is **missing** or **stale**
-  (see *Control coverage* below). It is reachable, and if it is hit, nobody will see it.
+- **Lift one band** when EDR is expected on the asset and is **missing, stale or unknown** (unknown is treated as
+  missing; see *Control coverage* below). It is reachable, and if it is hit, nobody will see it.
 
-Each lift applies at most once per finding, and lifts never go above P1.
+Each lift applies at most once per finding, and lifts never go above P1. **`lift-no-edr` does not stack with
+`lift-unmanaged`:** an unmanaged asset can't be in the EDR console, so both describe the same root cause, and it takes
+one lift, not two.
 
 ### Control coverage: EDR on exposed hosts
 
@@ -190,13 +181,12 @@ persistence, DET0540 compute hijacking) need that telemetry to fire.
 
 Rules:
 
-1. **Join on stable identifiers:** the cloud instance or resource ID and the hostname, never the public IP alone,
-   because cloud IPs are reused.
-2. **Missing or stale on an `agent_expected` class:** apply the override above, and record the endpoint-dependent
-   `soc_watch` DETs for that asset as `detection_gaps`.
-3. **A healthy agent never lowers the band.** EDR does not reduce Reach; it only improves the odds of seeing the
-   attack. Removing the exposure is still the fix. Deploying the agent is the interim safety net, and a valid
-   compensating control in an exception.
+| Rule | Detail |
+|---|---|
+| **Class default, asset override** | `agent_expected` on the catalog class is the *default*. Override per asset: `not-applicable` when the asset turns out to be an appliance or a managed service (e.g. RDS or Cloud SQL behind a `mysql` finding, a managed Kubernetes endpoint behind `k8s-api`, SSH on network gear); evaluate EDR when an `agent_expected: false` class is found on a general-purpose OS (e.g. Proxmox, Windows Admin Center, a Linux DNS server). Record why in `edr_source`. `uncatalogued` findings: decide per asset, defaulting hosts to `unknown` |
+| **Join on stable identifiers** | Cloud instance or resource ID plus hostname, never public IP alone, because cloud IPs are reused |
+| **Missing, stale or unknown** | Apply the override above (no stacking with `lift-unmanaged`), and record the endpoint-dependent `soc_watch` DETs for the asset as `detection_gaps` |
+| **Healthy never lowers the band** | EDR does not reduce Reach; it only improves the odds of seeing the attack. Removing the exposure is still the fix. Deploying the agent is the interim safety net. It can accompany an exception, but it **doesn't qualify as the exception's compensating control**, because that must reduce Reach (§6) |
 
 ### EPS and your prioritisation engine
 

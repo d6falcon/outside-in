@@ -50,9 +50,10 @@ curl -s -o /dev/null -w '%{http_code}' 'https://storage.googleapis.com/storage/v
 # 200
 ```
 
-**200 = anyone on the internet can list it.** Record the key *names* and the count (e.g. `exports/2026-11-13/customers.csv`,
-412 objects). **Never download objects** to "prove" sensitivity; the file names and the owner's confirmation are
-enough.
+**200 = anyone on the internet can list it.** For evidence, rerun without `-o /dev/null` and keep only the first key
+*name* returned (here `exports/2026-11-13/customers.csv`). Don't page through the listing to count objects; the owner
+gets the count inside-out in step 5. **Never download objects** to "prove" sensitivity; a file name plus the owner's
+confirmation is enough.
 
 > A 401/403 would *not* clear it: individual objects can still be public through an object-level `allUsers` grant,
 > so step 5 is always run.
@@ -63,7 +64,11 @@ enough.
 gcloud storage buckets get-iam-policy gs://acme-prod-exports --format=json
 #   { "members": ["allUsers"], "role": "roles/storage.objectViewer" }
 gcloud storage buckets describe gs://acme-prod-exports --format='value(public_access_prevention)'
-#   inherited          ← public access prevention is not enforced
+#   inherited          ← not set on the bucket; follows org policy
+gcloud resource-manager org-policies describe storage.publicAccessPrevention --project=acme-data-prod --effective
+#   (no enforcement)   ← so nothing is blocking public access
+gcloud storage ls 'gs://acme-prod-exports/**' | wc -l
+#   412                ← object count, taken inside-out
 ```
 
 > `allAuthenticatedUsers` would be just as bad: it means *any* Google account, not just staff.
@@ -113,7 +118,7 @@ SLA: **contain within 24 hours, fix within 72 hours.**
     "rung": "E4",
     "items": [
       { "rung": "E3", "collected_utc": "2026-11-14T09:02:00Z", "source": "curl", "vantage": "203.0.113.9",
-        "method": "GET storage/v1/b/acme-prod-exports/o?maxResults=1", "observed": "200; 412 objects; key names only" },
+        "method": "GET storage/v1/b/acme-prod-exports/o?maxResults=1", "observed": "200; listing permitted; first key name recorded" },
       { "rung": "E4", "collected_utc": "2026-11-14T09:40:00Z", "source": "owner-cli", "vantage": "data-platform on-call",
         "method": "gcloud storage buckets get-iam-policy gs://acme-prod-exports", "observed": "allUsers: roles/storage.objectViewer" }
     ]
@@ -141,30 +146,38 @@ SLA: **contain within 24 hours, fix within 72 hours.**
 ```bash
 gcloud storage buckets remove-iam-policy-binding gs://acme-prod-exports \
   --member=allUsers --role=roles/storage.objectViewer
-gcloud storage buckets update gs://acme-prod-exports --public-access-prevention --uniform-bucket-level-access
+gcloud storage buckets update gs://acme-prod-exports --public-access-prevention
 ```
+
+Public access prevention alone contains it. Add `--uniform-bucket-level-access` later, as a separate change: it
+disables **all** object ACLs, including legitimate non-public grants that apps may rely on, and is reversible for 90
+days only. Check for ACL-dependent consumers first.
 
 Sensitive data was exposed, so this is also an **incident question**:
 
-1. **Exposure window:** when was `allUsers` added? Check the Admin Activity audit logs for `SetIamPolicy` on the
-   bucket.
-2. **Was it read?** Check the bucket's usage logs if they are enabled. Data Access audit logs may not record anonymous
-   reads of public objects, so a gap there is *inconclusive*, not "no access".
-3. **Breach decision:** if access can't be ruled out, Privacy and Legal decide on notification. Regulatory clocks may
-   start at awareness.
-4. **Secrets in the exports?** Rotate them (see [RB-02](../../runbooks/RB-02-weak-leaked-stolen-credentials.md)).
+| Question | How to answer it |
+|---|---|
+| **Exposure window** | When was `allUsers` added? Cloud Storage logs bucket IAM changes as `storage.setIamPermissions`: `gcloud logging read 'resource.type="gcs_bucket" AND resource.labels.bucket_name="acme-prod-exports" AND protoPayload.methodName="storage.setIamPermissions"' --project=acme-data-prod --freshness=400d` |
+| **Was it read?** | Cloud Audit Logs do **not** record access granted through `allUsers` / `allAuthenticatedUsers`, even with Data Access logs on. Only the bucket's usage logs (if enabled) show reads, so their absence is *inconclusive*, not "no access" |
+| **Breach decision** | If access can't be ruled out, Privacy and Legal decide on notification. Regulatory clocks may start at awareness |
+| **Secrets in the exports?** | Rotate them (see [RB-02](../../runbooks/RB-02-weak-leaked-stolen-credentials.md)) |
 
 ## 9. Close the class
 
-Enforce at the organisation, so no project can repeat it:
+Enforce at the organisation, so no project can repeat it. **Read the caution first.**
+
+> **Caution:** enforcing public access prevention at the organisation applies to **existing** buckets within about
+> 10 minutes. Any *intentionally* public bucket (static sites, public downloads) stops serving immediately. Before you
+> enforce, list those buckets (Cloud Asset Inventory or SCC) and exempt their projects, or move them behind a CDN with
+> a private origin.
 
 ```bash
 gcloud resource-manager org-policies enable-enforce constraints/storage.publicAccessPrevention --organization=123456789012
 ```
 
-Add `constraints/iam.allowedPolicyMemberDomains` (domain-restricted sharing) to block `allUsers` and
-`allAuthenticatedUsers` bindings everywhere. Roll it out with the exceptions process, because it can break buckets
-that are *intentionally* public (serve those via a CDN with a private origin instead).
+Add `constraints/iam.allowedPolicyMemberDomains` (domain-restricted sharing) to block **new** `allUsers` and
+`allAuthenticatedUsers` bindings everywhere. It isn't retroactive, so existing public bindings must be removed
+separately.
 
 ## 10. Verify-closed
 
