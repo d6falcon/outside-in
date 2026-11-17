@@ -49,7 +49,7 @@ flowchart LR
 | **3 skills** | [exposed-services](skills/exposed-services/SKILL.md) · [exposed-cloud-assets](skills/exposed-cloud-assets/SKILL.md) · [exposure-triage](skills/exposure-triage/SKILL.md) |
 | **129 exposure classes** | [86 services](catalog/services.yaml) (RDP, VPNs, databases, Kubernetes, AI/MCP, OT…) and [43 cloud](catalog/cloud-assets.yaml) (buckets, snapshots, serverless, leaked keys, dangling DNS…) |
 | **2 runbooks** | [RB-01 Exploited internet-facing software](runbooks/RB-01-exploited-internet-facing-software.md) · [RB-02 Weak, leaked or stolen credentials](runbooks/RB-02-weak-leaked-stolen-credentials.md), together covering **~72%** of observed cloud initial access |
-| **ATT&CK v20.1** | Every cited technique and detection strategy is validated against MITRE's STIX data by [one script](scripts/Update-AttackMapping.ps1) |
+| **ATT&CK v20.1** | Every cited technique and detection strategy is validated against MITRE's STIX data by [one script](scripts/update_attack_mapping.py) |
 | **Templates** | [Campaign](templates/remediation-campaign.md) · [Owner ticket](templates/owner-ticket.md) · [Exec brief](templates/exec-brief.md) · [Finding schema](schemas/finding.schema.json) |
 
 ## Quick start

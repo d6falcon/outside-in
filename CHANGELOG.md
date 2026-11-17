@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 (2026-11-17): validator in Python, checked in CI
+
+| Area | Change |
+|---|---|
+| Validator | Ported to `scripts/update_attack_mapping.py` (Python 3.9+, standard library only); the PowerShell script is removed. Same two checks and output; the regenerated `catalog/attack-enterprise.tsv` is identical apart from its header. Adds `--check-only`. Negative-tested: a fake technique and an orphan detection strategy both fail |
+| CI | New `attack-lint` workflow: both checks on every push and pull request (pinned to v20.1), plus a monthly run against the latest ATT&CK release |
+
 ## 0.4.1 (2026-11-16): second technical review and readability pass
 
 | Area | Change |

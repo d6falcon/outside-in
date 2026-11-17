@@ -115,9 +115,7 @@ Items that are not runbooks, captured here so they aren't lost:
 
 | Item | What it is |
 |---|---|
-| Catalog schema linter | Validate `catalog/*.yaml` field structure against a JSON Schema (the DET-to-technique consistency check is already automated in `scripts/Update-AttackMapping.ps1`). |
-| CI workflow | Run `scripts/Update-AttackMapping.ps1` on every PR and on each ATT&CK release (April and October). |
-| Port-list generator | Build the nmap/naabu port list from `services.yaml`. |
+| Catalog schema linter | Validate `catalog/*.yaml` field structure against a JSON Schema (the DET-to-technique consistency check is already automated in `scripts/update_attack_mapping.py`). || Port-list generator | Build the nmap/naabu port list from `services.yaml`. |
 | Feed normalisers | Shadowserver CSV, Shodan/Censys JSON, nmap XML, Security Hub ASFF → `finding.schema.json`. |
 | KEV / EPSS enricher | Fetch the CISA KEV JSON and the EPSS API and annotate findings. |
 | Diff tool | Cycle-to-cycle new / closed / regressed buckets. |

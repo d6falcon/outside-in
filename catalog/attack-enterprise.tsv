@@ -1,4 +1,4 @@
-# ATT&CK Enterprise 20.1 - generated 2026-11-16 by scripts/Update-AttackMapping.ps1 - (c) The MITRE Corporation, ATT&CK Terms of Use apply
+# ATT&CK Enterprise 20.1 - generated 2026-11-17 by scripts/update_attack_mapping.py - (c) The MITRE Corporation, ATT&CK Terms of Use apply
 technique_id	name	tactics	platforms	detection_strategies	mitigations
 T1001	Data Obfuscation	command-and-control	ESXi,Linux,macOS,Windows	DET0053	M1031
 T1001.001	Junk Data	command-and-control	ESXi,Linux,macOS,Windows	DET0011	M1031

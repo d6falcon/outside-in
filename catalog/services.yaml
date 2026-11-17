@@ -1,5 +1,5 @@
 # outside-in :: exposed network services catalog
-# ATT&CK Enterprise v20.1. Every T/DET/M ID is checked by scripts/Update-AttackMapping.ps1.
+# ATT&CK Enterprise v20.1. Every T/DET/M ID is checked by scripts/update_attack_mapping.py.
 #
 # Field guide
 #   weight       critical | high | medium | low   -> feeds the EPS "Class" factor (25 / 20 / 10 / 3)

@@ -5,7 +5,7 @@ This document explains how `outside-in` uses ATT&CK, and gives the exposure-to-a
 - **Version:** Enterprise ATT&CK **v20.1** (STIX data modified 5 Nov 2026). It has 15 tactics, 227 techniques,
   479 sub-techniques, 703 detection strategies and 1,770 analytics.
 - **Source of truth:** [`catalog/attack-enterprise.tsv`](../catalog/attack-enterprise.tsv), generated from MITRE's
-  official STIX bundle by [`scripts/Update-AttackMapping.ps1`](../scripts/Update-AttackMapping.ps1). The script also fails
+  official STIX bundle by [`scripts/update_attack_mapping.py`](../scripts/update_attack_mapping.py). The script also fails
   if any T, DET or M ID in the catalogs or docs is revoked, deprecated or mistyped.
 
 ## 1. Conventions

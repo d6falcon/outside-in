@@ -87,7 +87,7 @@ ATT&CK **v20.1** (released 13 Oct 2026, data updated 5 Nov 2026) is current. The
 | **v20** (Oct 2026) | AI techniques: **Direct/Indirect Prompt Injection (T1699/T1698)**, **AI-Enabled Exfiltration (T1700)**, **AI Result Poisoning (T1608.007)** | Used for exposed AI and MCP endpoints |
 
 All technique, DET and mitigation IDs in this repo were checked against MITRE's official STIX bundle
-(`enterprise-attack-20.1.json`) on 12 Nov 2026. See [scripts/Update-AttackMapping.ps1](scripts/Update-AttackMapping.ps1).
+(`enterprise-attack-20.1.json`) on 12 Nov 2026. See [scripts/update_attack_mapping.py](scripts/update_attack_mapping.py).
 
 ---
 

@@ -1,0 +1,31 @@
+name: attack-lint
+
+# Validates every ATT&CK ID cited in the repo against MITRE's STIX data.
+#   push / pull request: against the pinned version the catalog is built on
+#   monthly: against the latest ATT&CK release, so a new release that revokes a cited ID shows up as a failure
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 2 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attack-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ATTACK_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '20.1' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check ATT&CK IDs (${{ env.ATTACK_VERSION }})
+        run: |
+          if [ "$ATTACK_VERSION" = "latest" ]; then
+            python3 scripts/update_attack_mapping.py --check-only
+          else
+            python3 scripts/update_attack_mapping.py --version "$ATTACK_VERSION" --check-only
+          fi

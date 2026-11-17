@@ -19,10 +19,10 @@ Copy-Item -Recurse catalog, docs, schemas, templates, runbooks "$HOME\.claude\sk
 
 ## Refresh ATT&CK
 
-After each MITRE release (April and October), run this on Windows PowerShell 5.1 or PowerShell 7+:
+After each MITRE release (April and October), run this (Python 3.9+, standard library only):
 
-```powershell
-./scripts/Update-AttackMapping.ps1
+```bash
+python3 scripts/update_attack_mapping.py
 ```
 
 | Check | Fails when |
@@ -30,4 +30,6 @@ After each MITRE release (April and October), run this on Windows PowerShell 5.1
 | 1 | Any cited technique, detection strategy or mitigation ID is revoked, deprecated or mistyped |
 | 2 | A detection strategy is cited without a technique it detects (per catalog entry and per runbook) |
 
-It also regenerates `catalog/attack-enterprise.tsv`.
+It also regenerates `catalog/attack-enterprise.tsv`. Add `--version 20.1` to pin a release, or `--check-only` to validate without rewriting the file.
+
+The [attack-lint](../.github/workflows/attack-lint.yml) workflow runs both checks on every push and pull request (pinned to v20.1), and monthly against the latest ATT&CK release so a new release that revokes a cited ID shows up as a failed run.

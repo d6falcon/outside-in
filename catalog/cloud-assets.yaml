@@ -1,5 +1,5 @@
 # outside-in :: exposed cloud assets catalog
-# ATT&CK Enterprise v20.1. Every T/DET/M ID is checked by scripts/Update-AttackMapping.ps1.
+# ATT&CK Enterprise v20.1. Every T/DET/M ID is checked by scripts/update_attack_mapping.py.
 #
 # Field guide (extends services.yaml)
 #   discover     outside-in ways to find the asset (OSINT, passive, or least-touch)
