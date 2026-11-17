@@ -11,11 +11,7 @@ cp -r skills/* ~/.claude/skills/
 cp -r catalog docs schemas templates runbooks ~/.claude/skills/outside-in-kb/
 ```
 
-```powershell
-New-Item -ItemType Directory -Force "$HOME\.claude\skills", "$HOME\.claude\skills\outside-in-kb" | Out-Null
-Copy-Item -Recurse skills\* "$HOME\.claude\skills\"
-Copy-Item -Recurse catalog, docs, schemas, templates, runbooks "$HOME\.claude\skills\outside-in-kb\"
-```
+On Windows, run this from WSL or Git Bash.
 
 ## Refresh ATT&CK
 
